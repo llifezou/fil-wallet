@@ -1,0 +1,11 @@
+account:
+  mnemonic: xxx
+  password: xxx
+  key: xxx
+
+chain:
+  rpc_addr: xxx
+  gas-premium: xxx
+  gas-feecap: xxx
+  gas-limit:
+  nonce:
