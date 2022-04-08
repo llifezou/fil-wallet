@@ -2,7 +2,7 @@ package main
 
 import (
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/llifezou/fil-wallet/cmd"
+	"github.com/llifezou/fil-wallet/wallet"
 	"github.com/urfave/cli/v2"
 	"os"
 )
@@ -18,7 +18,8 @@ func main() {
 		Version:              "v0.0.1",
 		EnableBashCompletion: true,
 		Commands: []*cli.Command{
-			cmd.WalletCmd,
+			wallet.Cmd,
+			wallet.ChainCmd,
 		},
 	}
 
