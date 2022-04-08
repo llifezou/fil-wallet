@@ -18,11 +18,8 @@ type Account struct {
 }
 
 type Chain struct {
-	rpcAddr    string `yaml:"rpc_addr"`
-	GasPremium string `yaml:"gas-premium"`
-	GasFeeCap  string `yaml:"gas-feecap"`
-	GasLimit   int64  `yaml:"gas-limit"`
-	Nonce      int    `yaml:"nonce"`
+	RpcAddr  string `yaml:"rpcAddr"`
+	Explorer string `yaml:"explorer"`
 }
 
 var (
