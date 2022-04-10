@@ -9,7 +9,6 @@ require (
 
 replace (
 	github.com/filecoin-project/filecoin-ffi => ./extern/filecoin-ffi
-	github.com/zondax/hid v0.9.0 => /Users/zouwenbin/zou/work/hid
 )
 
 require github.com/urfave/cli/v2 v2.3.0
