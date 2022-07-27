@@ -1,8 +1,0 @@
-account:
-  mnemonic: xxx
-  password:
-  key: xxx # Will support the private key exported by lotus, and it will take precedence over the mnemonic
-
-chain:
-  rpcAddr: https://dev.node.glif.io/calibrationapi/lotus/rpc/v0
-  explorer: https://calibration.filscan.io/

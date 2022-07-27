@@ -12,12 +12,14 @@ type Config struct {
 }
 
 type Account struct {
-	Mnemonic string `yaml:"mnemonic"`
-	Password string `yaml:"password"`
-	Key      string `yaml:"key"`
+	Mnemonic  string `yaml:"mnemonic"`
+	Password  bool   `yaml:"password"`
+	Key       string `yaml:"key"`
+	KeyFormat string `yaml:"keyFormat"`
 }
 
 type Chain struct {
+	MaxFee   string `json:"maxFee"`
 	RpcAddr  string `yaml:"rpcAddr"`
 	Explorer string `yaml:"explorer"`
 }
