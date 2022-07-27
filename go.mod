@@ -27,7 +27,8 @@ require (
 	github.com/filecoin-project/go-address v0.0.6
 	github.com/filecoin-project/specs-actors/v7 v7.0.0
 	github.com/ipfs/go-cid v0.1.0
-	github.com/llifezou/fil-sdk v0.0.0-20220316123153-66aa5260cbcc
+	github.com/llifezou/fil-sdk v0.0.1
+	github.com/whyrusleeping/cbor-gen v0.0.0-20210713220151-be142a5ae1a8
 )
 
 require (
@@ -222,7 +223,6 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/whyrusleeping/bencher v0.0.0-20190829221104-bb6607aa8bba // indirect
-	github.com/whyrusleeping/cbor-gen v0.0.0-20210713220151-be142a5ae1a8 // indirect
 	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect
 	github.com/whyrusleeping/ledger-filecoin-go v0.9.1-0.20201010031517-c3dcc1bddce4 // indirect
 	github.com/whyrusleeping/pubsub v0.0.0-20190708150250-92bcb0691325 // indirect
