@@ -1,5 +1,13 @@
 # fil-wallet
 
+**Warn⚠️: Please save the mnemonic, don't tell anyone, do not upload it to any platform, leaking the mnemonic will cause property damage. This wallet will not save anything, any line of code is under your own control! When using, please ensure that the computer environment is safe!**
+
+**警告⚠️：请保存助记词，不要告诉任何人，不要上传到任何平台，泄露助记词会造成财产损失。这个钱包不会保存任何东西，任何一行代码都在你自己的控制之下！使用时，请保证电脑环境安全！**
+
+**Note⚠️: This open source wallet is free. It also takes no responsibility. Please use it correctly.**
+
+**注意⚠️：这个开源钱包是免费的。它也不承担任何责任。请正确使用。**
+
 ### FIL hd wallet
 
 #### Already supported:
@@ -31,7 +39,6 @@
   ```
   make all
   ```
-
   ```
   ./fil-wallet -h  
   NAME:
@@ -41,7 +48,7 @@
      fil-wallet [global options] command [command options] [arguments...]
 
   VERSION:
-     v0.0.1
+     v0.1.0
 
   COMMANDS:
      wallet   fil wallet
@@ -110,7 +117,3 @@
   2022-04-08T23:38:20.917+0800    INFO    wallet  wallet/account.go:41    wallet info     {"type": "secp256k1", "index": 1, "path": "m/44'/461'/0'/0/1"}
   valid signature
   ```
-
-**Support**
-
-If it is useful to you, you can sponsor me a little FIL: `f12kpvdrn2swiviglkn56hkmphvjfqlwhlwru6jhi`
