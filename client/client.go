@@ -13,8 +13,10 @@ import (
 type Method string
 
 const (
-	WalletBalance Method = "Filecoin.WalletBalance"
-	MpoolPush     Method = "Filecoin.MpoolPush"
+	WalletBalance         Method = "Filecoin.WalletBalance"
+	MpoolPush             Method = "Filecoin.MpoolPush"
+	GasEstimateMessageGas Method = "Filecoin.GasEstimateMessageGas"
+	MpoolGetNonce         Method = "Filecoin.MpoolGetNonce"
 )
 
 type client struct {
