@@ -81,6 +81,7 @@ func getParams(cctx *cli.Context) (*SendParams, error) {
 		}
 		params.Params = encParams
 	}
+
 	if cctx.IsSet("params-hex") {
 		if params.Params != nil {
 			return nil, fmt.Errorf("can only specify one of 'params-json' and 'params-hex'")
