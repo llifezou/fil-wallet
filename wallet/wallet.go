@@ -15,11 +15,9 @@ import (
 	_ "github.com/llifezou/fil-sdk/sigs/bls"
 	_ "github.com/llifezou/fil-sdk/sigs/secp"
 	"github.com/llifezou/fil-wallet/config"
-	"github.com/llifezou/fil-wallet/util"
 	"github.com/llifezou/hdwallet"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/xerrors"
-	"os"
 )
 
 var log = logging.Logger("wallet")
@@ -79,25 +77,6 @@ var walletNew = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		conf := config.Conf()
-		if conf.Account.Password != "" {
-			color.Red("钱包密码不为空，密码参与派生，请保存好密码！")
-			color.Red("Wallet password is not empty, the password is involved in the derivation, please save the password!")
-
-			fmt.Printf("\n")
-
-			fmt.Println("请输入密码，确定 config.yaml 中的密码正确！")
-			fmt.Println("Please enter the password to confirm that the password in the config.yaml is correct!")
-
-			if password := util.GetPassword(); password != conf.Account.Password {
-				color.Red(fmt.Sprintf("密码不匹配！输入的密码：%s", password))
-				color.Red(fmt.Sprintf("Passwords do not match！The entered password: %s", password))
-				os.Exit(1)
-			}
-
-			fmt.Printf("\n")
-		}
-
 		nk, err := getAccount(cctx)
 		if err != nil {
 			return err
@@ -150,7 +129,7 @@ var walletSign = &cli.Command{
 		}
 
 		if nk.Address.String() != addr.String() {
-			return xerrors.Errorf("type: %s, index:%d, The derived address is: %s, sign address is: %s", cctx.String("type"), cctx.Int("index"), nk.Address.String(), addr.String())
+			return xerrors.Errorf("The wallet address is: %s, sign address is: %s", nk.Address.String(), addr.String())
 		}
 
 		msg, err := hex.DecodeString(cctx.Args().Get(1))
@@ -202,7 +181,7 @@ var walletVerify = &cli.Command{
 		}
 
 		if nk.Address.String() != addr.String() {
-			return xerrors.Errorf("type: %s, index:%d, The derived address is: %s, sign address is: %s", cctx.String("type"), cctx.Int("index"), nk.Address.String(), addr.String())
+			return xerrors.Errorf("The wallet address is: %s, sign address is: %s", nk.Address.String(), addr.String())
 		}
 
 		msg, err := hex.DecodeString(cctx.Args().Get(1))
@@ -336,9 +315,9 @@ var walletTransfer = &cli.Command{
 			return err
 		}
 
-		messageCid, err := send(cctx, nk, *sendParams)
+		messageCid, err := send(nk, *sendParams)
 		if err != nil {
-			fmt.Println(err)
+			log.Error(err)
 			return nil
 		}
 
@@ -418,7 +397,7 @@ var walletSendCmd = &cli.Command{
 			return err
 		}
 
-		messageCid, err := send(cctx, nk, *sendParams)
+		messageCid, err := send(nk, *sendParams)
 		if err != nil {
 			fmt.Println(err)
 			return nil
