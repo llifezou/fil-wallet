@@ -34,6 +34,8 @@ func init() {
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("./conf")
 	viper.AddConfigPath("../conf")
+	viper.AddConfigPath("./")
+	viper.AddConfigPath("../")
 	err := viper.ReadInConfig()
 	if err != nil {
 		log.Errorf("ReadInConfig fail: %+v", err)
