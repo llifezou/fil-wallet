@@ -2,6 +2,7 @@ package main
 
 import (
 	logging "github.com/ipfs/go-log/v2"
+	"github.com/llifezou/fil-wallet/build"
 	"github.com/llifezou/fil-wallet/wallet"
 	"github.com/urfave/cli/v2"
 	"os"
@@ -15,7 +16,7 @@ func main() {
 	app := &cli.App{
 		Name:                 "fil-wallet",
 		Usage:                "fil hd wallet",
-		Version:              "v0.1.1",
+		Version:              build.Version(),
 		EnableBashCompletion: true,
 		Commands: []*cli.Command{
 			wallet.Cmd,
