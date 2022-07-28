@@ -16,7 +16,7 @@ require github.com/urfave/cli/v2 v2.3.0
 require github.com/fatih/color v1.13.0
 
 require (
-	github.com/filecoin-project/go-state-types v0.1.3
+	github.com/filecoin-project/go-state-types v0.1.10
 	github.com/filecoin-project/lotus v1.15.0
 	github.com/llifezou/hdwallet v0.0.1
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
@@ -25,6 +25,8 @@ require (
 require (
 	github.com/ethereum/go-ethereum v1.10.16
 	github.com/filecoin-project/go-address v0.0.6
+	github.com/filecoin-project/specs-actors/v2 v2.3.6
+	github.com/filecoin-project/specs-actors/v5 v5.0.4
 	github.com/filecoin-project/specs-actors/v7 v7.0.0
 	github.com/ipfs/go-cid v0.1.0
 	github.com/llifezou/fil-sdk v0.0.1
@@ -80,10 +82,8 @@ require (
 	github.com/filecoin-project/go-statemachine v1.0.1 // indirect
 	github.com/filecoin-project/go-statestore v0.2.0 // indirect
 	github.com/filecoin-project/specs-actors v0.9.14 // indirect
-	github.com/filecoin-project/specs-actors/v2 v2.3.6 // indirect
 	github.com/filecoin-project/specs-actors/v3 v3.1.1 // indirect
 	github.com/filecoin-project/specs-actors/v4 v4.0.1 // indirect
-	github.com/filecoin-project/specs-actors/v5 v5.0.4 // indirect
 	github.com/filecoin-project/specs-actors/v6 v6.0.1 // indirect
 	github.com/filecoin-project/specs-storage v0.2.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
