@@ -10,6 +10,8 @@
 
 ### FIL hd wallet
 
+- A hd wallet tool that only needs node url, no need to run a daemon
+
 #### Already supported:
 
 - wallet:
@@ -22,6 +24,8 @@
   - balance inquiry
   - transfer amount
   - send transactions
+  - support multi-signatur
+    - **The multi-signature tool function has not been tested on the mainnet, so use it with caution.**
 - tool:
 
   - encode params
@@ -29,7 +33,6 @@
 
 #### TODO
 
-- will support multi-signature
 - will support fvm calls (in the future)
 
 #### use
