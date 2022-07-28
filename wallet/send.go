@@ -27,7 +27,7 @@ func send(account *wallet.Key, message *types.Message) (cid.Cid, error) {
 		return cid.Undef, err
 	}
 
-	msgCid, err := client.LotusMpoolPush(conf.Chain.RpcAddr, signedMessage)
+	msgCid, err := client.LotusMpoolPush(conf.Chain.RpcAddr, conf.Chain.Token, signedMessage)
 	if err != nil {
 		return cid.Undef, err
 	}

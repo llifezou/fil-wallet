@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -24,6 +25,7 @@ const (
 
 type client struct {
 	rpcAddr string
+	token   string
 	JsonRpc string      `json:"jsonrpc"` // "2.0"
 	Method  string      `json:"method"`
 	Params  interface{} `json:"params"`
@@ -37,11 +39,12 @@ type Response struct {
 	Error   interface{} `json:"error"`
 }
 
-func NewClient(rpcAddr string, method Method, params interface{}) *client {
+func NewClient(rpcAddr, token string, method Method, params interface{}) *client {
 	rand.Seed(time.Now().UnixNano())
 	id := rand.Intn(100)
 	return &client{
 		rpcAddr: rpcAddr,
+		token:   token,
 		JsonRpc: "2.0",
 		Method:  string(method),
 		Params:  params,
@@ -61,6 +64,10 @@ func (c *client) Call() ([]byte, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+
+	if len(strings.Trim(c.token, " ")) > 0 {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)

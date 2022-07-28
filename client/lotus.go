@@ -9,8 +9,8 @@ import (
 	"golang.org/x/xerrors"
 )
 
-func LotusWalletBalance(rpcAddr string, addr string) (types.BigInt, error) {
-	result, err := NewClient(rpcAddr, WalletBalance, []string{addr}).Call()
+func LotusWalletBalance(rpcAddr, token string, addr string) (types.BigInt, error) {
+	result, err := NewClient(rpcAddr, token, WalletBalance, []string{addr}).Call()
 	if err != nil {
 		return types.NewInt(0), err
 	}
@@ -29,8 +29,8 @@ func LotusWalletBalance(rpcAddr string, addr string) (types.BigInt, error) {
 	return balance, nil
 }
 
-func LotusMpoolPush(rpcAddr string, signedMessage *types.SignedMessage) (cid.Cid, error) {
-	result, err := NewClient(rpcAddr, MpoolPush, []types.SignedMessage{*signedMessage}).Call()
+func LotusMpoolPush(rpcAddr, token string, signedMessage *types.SignedMessage) (cid.Cid, error) {
+	result, err := NewClient(rpcAddr, token, MpoolPush, []types.SignedMessage{*signedMessage}).Call()
 	if err != nil {
 		return cid.Undef, err
 	}
@@ -51,13 +51,13 @@ func LotusMpoolPush(rpcAddr string, signedMessage *types.SignedMessage) (cid.Cid
 	return cid.Undef, nil
 }
 
-func LotusGasEstimateMessageGas(rpcAddr string, message *types.Message, maxFee int64) (gasLimit float64, gasFeeCap, gasPremium string, err error) {
+func LotusGasEstimateMessageGas(rpcAddr, token string, message *types.Message, maxFee int64) (gasLimit float64, gasFeeCap, gasPremium string, err error) {
 	var params []interface{}
 	params = append(params, message)
 	params = append(params, api.MessageSendSpec{MaxFee: abi.NewTokenAmount(maxFee)})
 	params = append(params, types.EmptyTSK)
 
-	result, err := NewClient(rpcAddr, GasEstimateMessageGas, params).Call()
+	result, err := NewClient(rpcAddr, token, GasEstimateMessageGas, params).Call()
 	if err != nil {
 		return 0, "", "", err
 	}
@@ -82,8 +82,8 @@ func LotusGasEstimateMessageGas(rpcAddr string, message *types.Message, maxFee i
 	return 0, "", "", xerrors.New("result is empty")
 }
 
-func LotusMpoolGetNonce(rpcAddr string, addr string) (float64, error) {
-	result, err := NewClient(rpcAddr, MpoolGetNonce, []string{addr}).Call()
+func LotusMpoolGetNonce(rpcAddr, token string, addr string) (float64, error) {
+	result, err := NewClient(rpcAddr, token, MpoolGetNonce, []string{addr}).Call()
 	if err != nil {
 		return 0, err
 	}
@@ -97,12 +97,12 @@ func LotusMpoolGetNonce(rpcAddr string, addr string) (float64, error) {
 	return r.Result.(float64), nil
 }
 
-func LotusStateLookupID(rpcAddr string, addr string) (string, error) {
+func LotusStateLookupID(rpcAddr, token string, addr string) (string, error) {
 	var params []interface{}
 	params = append(params, addr)
 	params = append(params, types.EmptyTSK)
 
-	result, err := NewClient(rpcAddr, StateLookupID, params).Call()
+	result, err := NewClient(rpcAddr, token, StateLookupID, params).Call()
 	if err != nil {
 		return "", err
 	}
@@ -124,12 +124,12 @@ func LotusStateLookupID(rpcAddr string, addr string) (string, error) {
 	return "", xerrors.New("result is empty")
 }
 
-func LotusStateGetActor(rpcAddr string, addr string) (string, string, float64, string, error) {
+func LotusStateGetActor(rpcAddr, token string, addr string) (string, string, float64, string, error) {
 	var params []interface{}
 	params = append(params, addr)
 	params = append(params, types.EmptyTSK)
 
-	result, err := NewClient(rpcAddr, StateGetActor, params).Call()
+	result, err := NewClient(rpcAddr, token, StateGetActor, params).Call()
 	if err != nil {
 		return "", "", 0, "", err
 	}
@@ -155,12 +155,12 @@ func LotusStateGetActor(rpcAddr string, addr string) (string, string, float64, s
 	return "", "", 0, "", xerrors.New("result is empty")
 }
 
-func LotusStateMinerInfo(rpcAddr string, minerId string) (string, string, []interface{}, error) {
+func LotusStateMinerInfo(rpcAddr, token string, minerId string) (string, string, []interface{}, error) {
 	var params []interface{}
 	params = append(params, minerId)
 	params = append(params, types.EmptyTSK)
 
-	result, err := NewClient(rpcAddr, StateMinerInfo, params).Call()
+	result, err := NewClient(rpcAddr, token, StateMinerInfo, params).Call()
 	if err != nil {
 		return "", "", []interface{}{}, err
 	}

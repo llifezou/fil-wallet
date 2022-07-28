@@ -11,8 +11,10 @@ account:
 # chain
 #   maxFee: Max limit Fee when auto acquiring gas
 #   rpcAddr: Accessible filecoin network node rpc address
+#   token: Fill in when lotus daemon asks for token, because missing permission to invoke 'MpoolPush' (need 'write'). Not required for special node, such as infura
 #   explorer: The block explorer address of the filecoin network
 chain:
   maxFee: 1FIL
   rpcAddr: https://api.node.glif.io/rpc/v0
+  token:
   explorer: https://filfox.info/en

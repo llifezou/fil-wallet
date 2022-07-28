@@ -57,7 +57,7 @@ func estimateMessageGasAndNonce(msg *types.Message) (*types.Message, error) {
 		msg.GasPremium == types.EmptyInt || types.BigCmp(msg.GasPremium, types.NewInt(0)) == 0 {
 
 		conf := config.Conf()
-		gasLimit, gasFeeCap, gasPremium, err := client.LotusGasEstimateMessageGas(conf.Chain.RpcAddr, msg, types.MustParseFIL(conf.Chain.MaxFee).Int64())
+		gasLimit, gasFeeCap, gasPremium, err := client.LotusGasEstimateMessageGas(conf.Chain.RpcAddr, conf.Chain.Token, msg, types.MustParseFIL(conf.Chain.MaxFee).Int64())
 		if err != nil {
 			return nil, err
 		}
@@ -84,7 +84,7 @@ func estimateMessageGasAndNonce(msg *types.Message) (*types.Message, error) {
 	}
 
 	if msg.Nonce == 0 {
-		nonce, err := client.LotusMpoolGetNonce(config.Conf().Chain.RpcAddr, msg.From.String())
+		nonce, err := client.LotusMpoolGetNonce(config.Conf().Chain.RpcAddr, config.Conf().Chain.Token, msg.From.String())
 		if err != nil {
 			return nil, err
 		}

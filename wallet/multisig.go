@@ -226,7 +226,7 @@ var msigProposeCmd = &cli.Command{
 		from = f
 
 		conf := config.Conf()
-		code, _, _, _, err := client.LotusStateGetActor(conf.Chain.RpcAddr, msig.String())
+		code, _, _, _, err := client.LotusStateGetActor(conf.Chain.RpcAddr, conf.Chain.Token, msig.String())
 		if err != nil {
 			return fmt.Errorf("failed to look up multisig %s: %w", msig, err)
 		}
@@ -328,7 +328,7 @@ var msigApproveCmd = &cli.Command{
 			}
 
 			if proposer.Protocol() != address.ID {
-				proposerID, err := client.LotusStateLookupID(config.Conf().Chain.RpcAddr, proposer.String())
+				proposerID, err := client.LotusStateLookupID(config.Conf().Chain.RpcAddr, config.Conf().Chain.Token, proposer.String())
 				if err != nil {
 					return err
 				}
@@ -1511,7 +1511,7 @@ var msigChangeOwnerProposeCmd = &cli.Command{
 		}
 
 		conf := config.Conf()
-		newAddrStr, err := client.LotusStateLookupID(conf.Chain.RpcAddr, na.String())
+		newAddrStr, err := client.LotusStateLookupID(conf.Chain.RpcAddr, conf.Chain.Token, na.String())
 		if err != nil {
 			return err
 		}
@@ -1520,7 +1520,7 @@ var msigChangeOwnerProposeCmd = &cli.Command{
 			return err
 		}
 
-		owner, _, _, err := client.LotusStateMinerInfo(conf.Chain.RpcAddr, minerAddr.String())
+		owner, _, _, err := client.LotusStateMinerInfo(conf.Chain.RpcAddr, conf.Chain.Token, minerAddr.String())
 		if err != nil {
 			return err
 		}
@@ -1595,7 +1595,7 @@ var msigChangeOwnerApproveCmd = &cli.Command{
 		}
 
 		conf := config.Conf()
-		newAddrStr, err := client.LotusStateLookupID(conf.Chain.RpcAddr, na.String())
+		newAddrStr, err := client.LotusStateLookupID(conf.Chain.RpcAddr, conf.Chain.Token, na.String())
 		if err != nil {
 			return err
 		}
@@ -1614,7 +1614,7 @@ var msigChangeOwnerApproveCmd = &cli.Command{
 			return err
 		}
 
-		owner, _, _, err := client.LotusStateMinerInfo(conf.Chain.RpcAddr, minerAddr.String())
+		owner, _, _, err := client.LotusStateMinerInfo(conf.Chain.RpcAddr, conf.Chain.Token, minerAddr.String())
 		if err != nil {
 			return err
 		}
@@ -1834,7 +1834,7 @@ func (m *msig) MsigApproveOrCancelTxnHash(operation api.MsigProposeResponse, msi
 	}
 
 	if proposer.Protocol() != address.ID {
-		proposerID, err := client.LotusStateLookupID(config.Conf().Chain.RpcAddr, proposer.String())
+		proposerID, err := client.LotusStateLookupID(config.Conf().Chain.RpcAddr, config.Conf().Chain.Token, proposer.String())
 		if err != nil {
 			return nil, err
 		}

@@ -21,6 +21,7 @@ type Account struct {
 type Chain struct {
 	MaxFee   string `json:"maxFee"`
 	RpcAddr  string `yaml:"rpcAddr"`
+	Token    string `json:"token"`
 	Explorer string `yaml:"explorer"`
 }
 

@@ -9,7 +9,7 @@ import (
 func getBalance(addr string) (types.BigInt, error) {
 	conf := config.Conf()
 
-	balance, err := client.LotusWalletBalance(conf.Chain.RpcAddr, addr)
+	balance, err := client.LotusWalletBalance(conf.Chain.RpcAddr, conf.Chain.Token, addr)
 	if err != nil {
 		return types.NewInt(0), err
 	}
