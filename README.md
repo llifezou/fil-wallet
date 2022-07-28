@@ -37,32 +37,10 @@
 
 #### use
 
-- make
+- build and edit config.yaml
 
-  ```
-  make all
-  ```
-  ```
-  ./fil-wallet -h  
-  NAME:
-     fil-wallet - fil wallet
-
-  USAGE:
-     fil-wallet [global options] command [command options] [arguments...]
-
-  VERSION:
-     v0.1.0
-
-  COMMANDS:
-     wallet   fil wallet
-     chain    Interact with filecoin blockchain
-     help, h  Shows a list of commands or help for one command
-
-  GLOBAL OPTIONS:
-     --help, -h     show help (default: false)
-     --version, -v  print the version (default: false)
-
-  ```
+  - `make all`
+  - `cp conf/config.yaml.example  conf/config.yaml`
 - Generate mnemonic
 
   ```
