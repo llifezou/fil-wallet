@@ -17,6 +17,9 @@ const (
 	MpoolPush             Method = "Filecoin.MpoolPush"
 	GasEstimateMessageGas Method = "Filecoin.GasEstimateMessageGas"
 	MpoolGetNonce         Method = "Filecoin.MpoolGetNonce"
+	StateLookupID         Method = "Filecoin.StateLookupID"
+	StateGetActor         Method = "Filecoin.StateGetActor"
+	StateMinerInfo        Method = "Filecoin.StateMinerInfo"
 )
 
 type client struct {

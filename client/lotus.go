@@ -96,3 +96,91 @@ func LotusMpoolGetNonce(rpcAddr string, addr string) (float64, error) {
 
 	return r.Result.(float64), nil
 }
+
+func LotusStateLookupID(rpcAddr string, addr string) (string, error) {
+	var params []interface{}
+	params = append(params, addr)
+	params = append(params, types.EmptyTSK)
+
+	result, err := NewClient(rpcAddr, StateLookupID, params).Call()
+	if err != nil {
+		return "", err
+	}
+
+	r := Response{}
+	err = json.Unmarshal(result, &r)
+	if err != nil {
+		return "", err
+	}
+	if r.Error != nil {
+		return "", xerrors.Errorf("error: %s", r.Error.(map[string]interface{})["message"])
+	}
+
+	if r.Result != nil {
+		actorID := r.Result.(string)
+		return actorID, nil
+	}
+
+	return "", xerrors.New("result is empty")
+}
+
+func LotusStateGetActor(rpcAddr string, addr string) (string, string, float64, string, error) {
+	var params []interface{}
+	params = append(params, addr)
+	params = append(params, types.EmptyTSK)
+
+	result, err := NewClient(rpcAddr, StateGetActor, params).Call()
+	if err != nil {
+		return "", "", 0, "", err
+	}
+
+	r := Response{}
+	err = json.Unmarshal(result, &r)
+	if err != nil {
+		return "", "", 0, "", err
+	}
+	if r.Error != nil {
+		return "", "", 0, "", xerrors.Errorf("error: %s", r.Error.(map[string]interface{})["message"])
+	}
+
+	if r.Result != nil {
+		infoMap := r.Result.(map[string]interface{})
+		code := infoMap["Code"].(map[string]interface{})["/"].(string)
+		head := infoMap["Head"].(map[string]interface{})["/"].(string)
+		nonce := infoMap["Nonce"].(float64)
+		balance := infoMap["Balance"].(string)
+		return code, head, nonce, balance, nil
+	}
+
+	return "", "", 0, "", xerrors.New("result is empty")
+}
+
+func LotusStateMinerInfo(rpcAddr string, minerId string) (string, string, []interface{}, error) {
+	var params []interface{}
+	params = append(params, minerId)
+	params = append(params, types.EmptyTSK)
+
+	result, err := NewClient(rpcAddr, StateMinerInfo, params).Call()
+	if err != nil {
+		return "", "", []interface{}{}, err
+	}
+
+	r := Response{}
+	err = json.Unmarshal(result, &r)
+	if err != nil {
+		return "", "", []interface{}{}, err
+	}
+	if r.Error != nil {
+		return "", "", []interface{}{}, xerrors.Errorf("error: %s", r.Error.(map[string]interface{})["message"])
+	}
+
+	if r.Result != nil {
+		infoMap := r.Result.(map[string]interface{})
+		owner := infoMap["Owner"].(string)
+		worker := infoMap["Worker"].(string)
+		controlAddresses := infoMap["ControlAddresses"].([]interface{})
+		return owner, worker, controlAddresses, nil
+	}
+
+	return "", "", []interface{}{}, xerrors.New("result is empty")
+}
