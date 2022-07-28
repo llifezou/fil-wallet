@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/filecoin-project/lotus/chain/wallet"
 	"github.com/ipfs/go-cid"
 	"github.com/llifezou/fil-wallet/client"
@@ -8,8 +9,9 @@ import (
 	"golang.org/x/xerrors"
 )
 
-func send(account *wallet.Key, params SendParams) (cid.Cid, error) {
-	message, err := buildMessage(params)
+func send(account *wallet.Key, message *types.Message) (cid.Cid, error) {
+	var err error
+	message, err = estimateMessageGasAndNonce(message)
 	if err != nil {
 		return cid.Undef, err
 	}

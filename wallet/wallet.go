@@ -32,7 +32,7 @@ var Cmd = &cli.Command{
 		walletBalance,
 		walletTransfer,
 		walletSendCmd,
-		// todo multi sign
+		multisigCmd,
 		// todo call fvm
 	},
 }
@@ -315,10 +315,15 @@ var walletTransfer = &cli.Command{
 			return err
 		}
 
-		messageCid, err := send(nk, *sendParams)
+		sendMessage, err := buildMessage(sendParams)
+		if err != nil {
+			return err
+		}
+
+		messageCid, err := send(nk, sendMessage)
 		if err != nil {
 			log.Error(err)
-			return nil
+			return err
 		}
 
 		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, messageCid.String()))
@@ -397,10 +402,15 @@ var walletSendCmd = &cli.Command{
 			return err
 		}
 
-		messageCid, err := send(nk, *sendParams)
+		sendMessage, err := buildMessage(sendParams)
+		if err != nil {
+			return err
+		}
+
+		messageCid, err := send(nk, sendMessage)
 		if err != nil {
 			fmt.Println(err)
-			return nil
+			return err
 		}
 
 		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, messageCid.String()))

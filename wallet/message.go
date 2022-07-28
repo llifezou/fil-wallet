@@ -5,14 +5,12 @@ import (
 	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/filecoin-project/lotus/chain/wallet"
 	"github.com/llifezou/fil-sdk/sigs"
-	_ "github.com/llifezou/fil-sdk/sigs/bls"
-	_ "github.com/llifezou/fil-sdk/sigs/secp"
 	"github.com/llifezou/fil-wallet/client"
 	"github.com/llifezou/fil-wallet/config"
 	"golang.org/x/xerrors"
 )
 
-func buildMessage(params SendParams) (*types.Message, error) {
+func buildMessage(params *SendParams) (*types.Message, error) {
 	if params.From == address.Undef {
 		return nil, xerrors.New("formAddr undef")
 	}
@@ -44,12 +42,22 @@ func buildMessage(params SendParams) (*types.Message, error) {
 		msg.GasLimit = 0
 	}
 
+	if params.Nonce != nil {
+		msg.Nonce = *params.Nonce
+	} else {
+		msg.Nonce = 0
+	}
+
+	return &msg, nil
+}
+
+func estimateMessageGasAndNonce(msg *types.Message) (*types.Message, error) {
 	if msg.GasLimit == 0 ||
 		msg.GasFeeCap == types.EmptyInt || types.BigCmp(msg.GasFeeCap, types.NewInt(0)) == 0 ||
 		msg.GasPremium == types.EmptyInt || types.BigCmp(msg.GasPremium, types.NewInt(0)) == 0 {
 
 		conf := config.Conf()
-		gasLimit, gasFeeCap, gasPremium, err := client.LotusGasEstimateMessageGas(conf.Chain.RpcAddr, &msg, types.MustParseFIL(conf.Chain.MaxFee).Int64())
+		gasLimit, gasFeeCap, gasPremium, err := client.LotusGasEstimateMessageGas(conf.Chain.RpcAddr, msg, types.MustParseFIL(conf.Chain.MaxFee).Int64())
 		if err != nil {
 			return nil, err
 		}
@@ -75,9 +83,7 @@ func buildMessage(params SendParams) (*types.Message, error) {
 		}
 	}
 
-	if params.Nonce != nil {
-		msg.Nonce = *params.Nonce
-	} else {
+	if msg.Nonce == 0 {
 		nonce, err := client.LotusMpoolGetNonce(config.Conf().Chain.RpcAddr, msg.From.String())
 		if err != nil {
 			return nil, err
@@ -86,7 +92,7 @@ func buildMessage(params SendParams) (*types.Message, error) {
 		msg.Nonce = uint64(nonce)
 	}
 
-	return &msg, nil
+	return msg, nil
 }
 
 func signMessage(account *wallet.Key, msg *types.Message) (*types.SignedMessage, error) {
