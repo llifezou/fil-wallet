@@ -14,8 +14,8 @@ func main() {
 
 	app := &cli.App{
 		Name:                 "fil-wallet",
-		Usage:                "fil wallet",
-		Version:              "v0.1.0",
+		Usage:                "fil hd wallet",
+		Version:              "v0.1.1",
 		EnableBashCompletion: true,
 		Commands: []*cli.Command{
 			wallet.Cmd,
