@@ -1,0 +1,20 @@
+# account
+#   mnemonic: 保存好助记词，不要上传到任何地方
+#   password：使用密码参与推导，这样可以增加安全性
+#   key: 支持lotus导出的私钥，优先于助记词
+account:
+  mnemonic: 此处填写助记词
+  password: false  # true / false 此处填写false则不需输入密码
+  key: 此处填写lotus导出的私钥，不为空，使用优先级高于助记词
+  keyFormat: hex-lotus # key format: hex-lotus / json-lotus / gfc-json
+
+# chain
+#   maxFee: 自动获取gas费时，最大手续费限制
+#   rpcAddr: 节点url
+#   token: 当Lotus daemon要求令牌时填写，因为调用“MpoolPush”发送交易时需要写入权限。经过处理的特殊节点不需要，例如infura
+#   explorer: 区块游览器网址
+chain:
+  maxFee: 1FIL
+  rpcAddr: https://api.node.glif.io/rpc/v0
+  token:
+  explorer: https://filfox.info/en
