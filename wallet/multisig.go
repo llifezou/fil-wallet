@@ -1678,7 +1678,7 @@ func NewMsiger() *msig {
 }
 
 func (m *msig) messageBuilder(from address.Address) (multisig.MessageBuilder, error) {
-	av, err := actors.VersionForNetwork(network.Version16)
+	av, err := actors.VersionForNetwork(network.Version15)
 	if err != nil {
 		return nil, err
 	}
