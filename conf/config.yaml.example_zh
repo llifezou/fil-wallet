@@ -17,4 +17,4 @@ chain:
   maxFee: 1FIL
   rpcAddr: https://api.node.glif.io/rpc/v0
   token:
-  explorer: https://filfox.info/en
+  explorer: https://filfox.info/en/message/
