@@ -18,7 +18,7 @@ ffi:
 
 .PHONY: build
 build: build
-	go mod tidy
+	go mod tidy -go=1.16 && go mod tidy -go=1.17
 	rm -rf fil-wallet
 	go build $(GOFLAGS) -o fil-wallet ./main.go
 
