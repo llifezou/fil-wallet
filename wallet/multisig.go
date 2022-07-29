@@ -69,6 +69,7 @@ var multisigCmd = &cli.Command{
 		msigCancelCmd,
 		msigTransferProposeCmd,
 		msigTransferApproveCmd,
+		msigTransferCancelCmd,
 		msigAddProposeCmd,
 		msigAddApproveCmd,
 		msigAddCancelCmd,
@@ -307,7 +308,7 @@ var msigProposeCmd = &cli.Command{
 var msigApproveCmd = &cli.Command{
 	Name:      "approve",
 	Usage:     "Approve a multisig message",
-	ArgsUsage: "<multisigAddress messageId> [proposerAddress destination value [methodId methodParams]]",
+	ArgsUsage: "<multisigAddress txId> [proposerAddress destination value [methodId methodParams]]",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "from",
@@ -507,7 +508,7 @@ var msigTransferProposeCmd = &cli.Command{
 var msigTransferApproveCmd = &cli.Command{
 	Name:      "transfer-approve",
 	Usage:     "Approve a multisig message",
-	ArgsUsage: "<multisigAddress messageId>",
+	ArgsUsage: "<multisigAddress txId>",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "from",
@@ -561,10 +562,67 @@ var msigTransferApproveCmd = &cli.Command{
 	},
 }
 
+var msigTransferCancelCmd = &cli.Command{
+	Name:      "transfer-cancel",
+	Usage:     "Cancel transfer multisig message",
+	ArgsUsage: "<multisigAddress txId> [destination value [methodId methodParams]]",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "from",
+			Usage: "account to send the cancel message from",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		if cctx.Args().Len() != 2 {
+			return fmt.Errorf("must have multisig address and txId")
+		}
+
+		msig, err := address.NewFromString(cctx.Args().Get(0))
+		if err != nil {
+			return err
+		}
+
+		txid, err := strconv.ParseUint(cctx.Args().Get(1), 10, 64)
+		if err != nil {
+			return err
+		}
+
+		var from address.Address
+		f, err := address.NewFromString(cctx.String("from"))
+		if err != nil {
+			return err
+		}
+		from = f
+
+		nk, err := getAccount(cctx)
+		if err != nil {
+			return err
+		}
+
+		msiger := NewMsiger()
+
+		proto, err := msiger.MsigCancel(msig, txid, from)
+		if err != nil {
+			return err
+		}
+
+		msgCid, err := send(nk, proto)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		fmt.Println("sent transfer cancel in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
+
+		return waitMsg(msgCid.String())
+	},
+}
+
 var msigCancelCmd = &cli.Command{
 	Name:      "cancel",
 	Usage:     "Cancel a multisig message",
-	ArgsUsage: "<multisigAddress messageId> [destination value [methodId methodParams]]",
+	ArgsUsage: "<multisigAddress txId> [destination value [methodId methodParams]]",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "from",
@@ -1903,7 +1961,7 @@ func waitProposalMsg(msgCidStr string) error {
 		return xerrors.Errorf("decoding proposal return: %w", err)
 	}
 
-	fmt.Printf("TxnID: %d ", ret.TxnID)
+	fmt.Printf("txId: %d ", ret.TxnID)
 	return nil
 }
 
@@ -1936,7 +1994,7 @@ func waitMsg(msgCidStr string) error {
 		return fmt.Errorf("msg returned exit %d", wait.Receipt.ExitCode)
 	}
 
-	fmt.Println("message confirm!!!")
+	fmt.Println("message confirm!")
 
 	return nil
 }
