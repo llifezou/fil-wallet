@@ -24,8 +24,7 @@
   - balance inquiry
   - transfer amount
   - send transactions
-  - support multi-signatur
-    - **The multi-signature tool function has not been tested on the mainnet, so use it with caution.**
+  - multisig transaction
 - tool:
 
   - encode params
@@ -41,6 +40,7 @@
 
   - `make all`
   - `cp conf/config.yaml.example  conf/config.yaml`
+  - run `./fil-wallet -h`
 - Generate mnemonic
 
   ```
@@ -97,4 +97,13 @@
   6e050c6266c67e97531dde79425e998d95723ada4c816606141304a2b1e3953507597b3b86f8b81262bfba3b61d1a84292d100
   2022-04-08T23:38:20.917+0800    INFO    wallet  wallet/account.go:41    wallet info     {"type": "secp256k1", "index": 1, "path": "m/44'/461'/0'/0/1"}
   valid signature
+  ```
+- msig
+
+  - msig transfer
+
+  ```
+  ./fil-wallet wallet msig --index 0 create --required 3 --from f1xxx0 f1xxx1 f1xxx2 f1xxx3 f1xxx4 f1xxx5
+  ./fil-wallet wallet msig --index 1 transfer-propose --from f1xxx1 f2xxx f1xxx 0.05
+  ./fil-wallet wallet msig --index 2 transfer-approve --from f1xxx2 f2xxx 1
   ```
