@@ -21,6 +21,8 @@ const (
 	StateLookupID         Method = "Filecoin.StateLookupID"
 	StateGetActor         Method = "Filecoin.StateGetActor"
 	StateMinerInfo        Method = "Filecoin.StateMinerInfo"
+	StateWaitMsgLimited   Method = "Filecoin.StateWaitMsgLimited"
+	StateSearchMsg        Method = "Filecoin.StateSearchMsg"
 )
 
 type client struct {

@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"github.com/filecoin-project/go-address"
@@ -13,6 +14,7 @@ import (
 	bt2 "github.com/filecoin-project/lotus/chain/actors/builtin"
 	"github.com/filecoin-project/lotus/chain/actors/builtin/multisig"
 	"github.com/filecoin-project/lotus/chain/types"
+	init2 "github.com/filecoin-project/specs-actors/v2/actors/builtin/init"
 	msig2 "github.com/filecoin-project/specs-actors/v2/actors/builtin/multisig"
 	miner5 "github.com/filecoin-project/specs-actors/v5/actors/builtin/miner"
 	"github.com/ipfs/go-cid"
@@ -21,6 +23,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/xerrors"
 	"strconv"
+	"time"
 )
 
 var multisigCmd = &cli.Command{
@@ -64,6 +67,8 @@ var multisigCmd = &cli.Command{
 		msigRemoveProposeCmd,
 		msigApproveCmd,
 		msigCancelCmd,
+		msigTransferProposeCmd,
+		msigTransferApproveCmd,
 		msigAddProposeCmd,
 		msigAddApproveCmd,
 		msigAddCancelCmd,
@@ -164,6 +169,41 @@ var msigCreateCmd = &cli.Command{
 
 		fmt.Println("sent create in message: ", msgCid)
 		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
+
+		fmt.Println("message waiting for confirmation...")
+		conf := config.Conf()
+		var wait *client.MsgLookup
+		var i int = 0
+		for {
+			if i > 60 {
+				return xerrors.New("wait timeout")
+			}
+
+			time.Sleep(30 * time.Second)
+			wait, err = client.LotusStateSearchMsg(conf.Chain.RpcAddr, conf.Chain.Token, msgCid.String())
+			if err != nil {
+				log.Error(err)
+				return err
+			}
+
+			if wait == nil {
+				i++
+				continue
+			}
+
+			break
+		}
+
+		if wait.Receipt.ExitCode != 0 {
+			return fmt.Errorf("msg returned exit %d", wait.Receipt.ExitCode)
+		}
+
+		var execreturn init2.ExecReturn
+		if err := execreturn.UnmarshalCBOR(bytes.NewReader(wait.Receipt.Return)); err != nil {
+			return err
+		}
+		fmt.Fprintln(cctx.App.Writer, "Created new multisig: ", execreturn.IDAddress, execreturn.RobustAddress)
+
 		return nil
 	},
 }
@@ -258,7 +298,9 @@ var msigProposeCmd = &cli.Command{
 		}
 
 		fmt.Println("sent proposal in message: ", msgCid)
-		return nil
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
+
+		return waitProposalMsg(msgCid.String())
 	},
 }
 
@@ -377,8 +419,145 @@ var msigApproveCmd = &cli.Command{
 		}
 
 		fmt.Println("sent approval in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitMsg(msgCid.String())
+	},
+}
+
+var msigTransferProposeCmd = &cli.Command{
+	Name:      "transfer-propose",
+	Usage:     "Propose a multisig transaction",
+	ArgsUsage: "[multisigAddress destinationAddress value",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "from",
+			Usage: "account to send the propose message from",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		if cctx.Args().Len() != 3 {
+			return fmt.Errorf("must have multisig address, destination, and value")
+		}
+
+		msig, err := address.NewFromString(cctx.Args().Get(0))
+		if err != nil {
+			return err
+		}
+
+		dest, err := address.NewFromString(cctx.Args().Get(1))
+		if err != nil {
+			return err
+		}
+
+		value, err := types.ParseFIL(cctx.Args().Get(2))
+		if err != nil {
+			return err
+		}
+
+		var method uint64
+		var params []byte
+
+		var from address.Address
+		f, err := address.NewFromString(cctx.String("from"))
+		if err != nil {
+			return err
+		}
+		from = f
+
+		conf := config.Conf()
+		code, _, _, _, err := client.LotusStateGetActor(conf.Chain.RpcAddr, conf.Chain.Token, msig.String())
+		if err != nil {
+			return fmt.Errorf("failed to look up multisig %s: %w", msig, err)
+		}
+
+		codeCid, err := cid.Parse(code)
+		if err != nil {
+			return fmt.Errorf("failed to cid.Parse %s: %w", code, err)
+		}
+
+		if !bt2.IsMultisigActor(codeCid) {
+			return fmt.Errorf("actor %s is not a multisig actor", msig)
+		}
+
+		nk, err := getAccount(cctx)
+		if err != nil {
+			return err
+		}
+
+		msiger := NewMsiger()
+		proto, err := msiger.MsigPropose(msig, dest, types.BigInt(value), from, method, params)
+		if err != nil {
+			return err
+		}
+
+		msgCid, err := send(nk, proto)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		fmt.Println("transfer proposal in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
+
+		return waitProposalMsg(msgCid.String())
+	},
+}
+
+var msigTransferApproveCmd = &cli.Command{
+	Name:      "transfer-approve",
+	Usage:     "Approve a multisig message",
+	ArgsUsage: "<multisigAddress messageId>",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "from",
+			Usage: "account to send the approve message from",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		if cctx.Args().Len() != 2 {
+			return fmt.Errorf("must have multisig address and message ID")
+		}
+
+		msig, err := address.NewFromString(cctx.Args().Get(0))
+		if err != nil {
+			return err
+		}
+
+		txid, err := strconv.ParseUint(cctx.Args().Get(1), 10, 64)
+		if err != nil {
+			return err
+		}
+
+		var from address.Address
+		f, err := address.NewFromString(cctx.String("from"))
+		if err != nil {
+			return err
+		}
+		from = f
+
+		nk, err := getAccount(cctx)
+		if err != nil {
+			return err
+		}
+
+		msiger := NewMsiger()
+
+		proto, err := msiger.MsigApprove(msig, txid, from)
+		if err != nil {
+			return err
+		}
+
+		msgCid, err := send(nk, proto)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		fmt.Println("transfer approval in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
+
+		return waitMsg(msgCid.String())
 	},
 }
 
@@ -481,13 +660,14 @@ var msigCancelCmd = &cli.Command{
 		}
 
 		fmt.Println("sent cancel in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitMsg(msgCid.String())
 	},
 }
 
 var msigRemoveProposeCmd = &cli.Command{
-	Name:      "propose-remove",
+	Name:      "remove-propose",
 	Usage:     "Propose to remove a signer",
 	ArgsUsage: "[multisigAddress signer]",
 	Flags: []cli.Flag{
@@ -542,8 +722,9 @@ var msigRemoveProposeCmd = &cli.Command{
 		}
 
 		fmt.Println("sent remove proposal in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitProposalMsg(msgCid.String())
 	},
 }
 
@@ -603,8 +784,9 @@ var msigAddProposeCmd = &cli.Command{
 		}
 
 		fmt.Fprintln(cctx.App.Writer, "sent add proposal in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitProposalMsg(msgCid.String())
 	},
 }
 
@@ -675,8 +857,9 @@ var msigAddApproveCmd = &cli.Command{
 		}
 
 		fmt.Println("sent add approval in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitMsg(msgCid.String())
 	},
 }
 
@@ -742,8 +925,9 @@ var msigAddCancelCmd = &cli.Command{
 		}
 
 		fmt.Println("sent add cancellation in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitMsg(msgCid.String())
 	},
 }
 
@@ -803,8 +987,9 @@ var msigSwapProposeCmd = &cli.Command{
 			return err
 		}
 		fmt.Println("sent swap proposal in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitProposalMsg(msgCid.String())
 	},
 }
 
@@ -875,8 +1060,9 @@ var msigSwapApproveCmd = &cli.Command{
 		}
 
 		fmt.Println("sent swap approval in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitMsg(msgCid.String())
 	},
 }
 
@@ -942,8 +1128,9 @@ var msigSwapCancelCmd = &cli.Command{
 		}
 
 		fmt.Println("sent swap cancellation in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitMsg(msgCid.String())
 	},
 }
 
@@ -1018,8 +1205,9 @@ var msigLockProposeCmd = &cli.Command{
 			return err
 		}
 		fmt.Println("sent lock proposal in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitProposalMsg(msgCid.String())
 	},
 }
 
@@ -1105,8 +1293,9 @@ var msigLockApproveCmd = &cli.Command{
 		}
 
 		fmt.Println("sent lock approval in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitMsg(msgCid.String())
 	},
 }
 
@@ -1186,8 +1375,9 @@ var msigLockCancelCmd = &cli.Command{
 		}
 
 		fmt.Println("sent lock cancellation in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitMsg(msgCid.String())
 	},
 }
 
@@ -1250,8 +1440,9 @@ var msigThresholdProposeCmd = &cli.Command{
 		}
 
 		fmt.Println("sent change threshold proposal in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitProposalMsg(msgCid.String())
 	},
 }
 
@@ -1325,8 +1516,9 @@ var msigThresholdApproveCmd = &cli.Command{
 		}
 
 		fmt.Println("sent change threshold approval in message: ", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitMsg(msgCid.String())
 	},
 }
 
@@ -1392,8 +1584,9 @@ var msigWithdrawBalanceProposeCmd = &cli.Command{
 		}
 
 		fmt.Fprintln(cctx.App.Writer, "withdraw propose message CID:", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitProposalMsg(msgCid.String())
 	},
 }
 
@@ -1469,8 +1662,9 @@ var msigWithdrawBalanceApproveCmd = &cli.Command{
 		}
 
 		fmt.Fprintln(cctx.App.Writer, "withdraw approve message CID:", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitMsg(msgCid.String())
 	},
 }
 
@@ -1553,8 +1747,9 @@ var msigChangeOwnerProposeCmd = &cli.Command{
 		}
 
 		fmt.Fprintln(cctx.App.Writer, "change owner propose message CID:", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
-		return nil
+		return waitProposalMsg(msgCid.String())
 	},
 }
 
@@ -1647,7 +1842,9 @@ var msigChangeOwnerApproveCmd = &cli.Command{
 		}
 
 		fmt.Fprintln(cctx.App.Writer, "change owner approve message CID:", msgCid)
-		return nil
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
+
+		return waitMsg(msgCid.String())
 	},
 }
 
@@ -1670,7 +1867,82 @@ func getInputs(cctx *cli.Context) (address.Address, address.Address, address.Add
 	return multisigAddr, sender, minerAddr, nil
 }
 
+func waitProposalMsg(msgCidStr string) error {
+	fmt.Println("message waiting for confirmation...")
+	conf := config.Conf()
+
+	var wait *client.MsgLookup
+	var err error
+	var i int = 0
+	for {
+		if i > 60 {
+			return xerrors.New("wait timeout")
+		}
+
+		time.Sleep(30 * time.Second)
+		wait, err = client.LotusStateSearchMsg(conf.Chain.RpcAddr, conf.Chain.Token, msgCidStr)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		if wait == nil {
+			i++
+			continue
+		}
+
+		break
+	}
+
+	if wait.Receipt.ExitCode != 0 {
+		return fmt.Errorf("propose returned exit %d", wait.Receipt.ExitCode)
+	}
+
+	var ret multisig.ProposeReturn
+	err = ret.UnmarshalCBOR(bytes.NewReader(wait.Receipt.Return))
+	if err != nil {
+		return xerrors.Errorf("decoding proposal return: %w", err)
+	}
+
+	fmt.Printf("TxnID: %d ", ret.TxnID)
+	return nil
+}
+
+func waitMsg(msgCidStr string) error {
+	fmt.Println("message waiting for confirmation...")
+	conf := config.Conf()
+	var wait *client.MsgLookup
+	var err error
+	var i int = 0
+	for {
+		if i > 60 {
+			return xerrors.New("wait timeout")
+		}
+
+		time.Sleep(30 * time.Second)
+		wait, err = client.LotusStateSearchMsg(conf.Chain.RpcAddr, conf.Chain.Token, msgCidStr)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		if wait == nil {
+			i++
+			continue
+		}
+
+		break
+	}
+
+	if wait.Receipt.ExitCode != 0 {
+		return fmt.Errorf("msg returned exit %d", wait.Receipt.ExitCode)
+	}
+
+	fmt.Println("message confirm!!!")
+
+	return nil
+}
+
 // ------------------------------------
+
 type msig struct{}
 
 func NewMsiger() *msig {

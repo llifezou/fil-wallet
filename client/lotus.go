@@ -184,3 +184,71 @@ func LotusStateMinerInfo(rpcAddr, token string, minerId string) (string, string,
 
 	return "", "", []interface{}{}, xerrors.New("result is empty")
 }
+
+type MsgLookup struct {
+	Message   cid.Cid // Can be different than requested, in case it was replaced, but only gas values changed
+	Receipt   types.MessageReceipt
+	ReturnDec interface{}
+	TipSet    types.TipSetKey
+	Height    abi.ChainEpoch
+}
+
+func LotusStateWaitMsgLimited(rpcAddr, token string, msgCidStr string, confidence uint64) (*MsgLookup, error) {
+	var params []interface{}
+	msgCid, err := cid.Parse(msgCidStr)
+	if err != nil {
+		return nil, err
+	}
+	params = append(params, &msgCid)
+	params = append(params, confidence)
+	params = append(params, -1)
+
+	result, err := NewClient(rpcAddr, token, StateWaitMsgLimited, params).Call()
+	if err != nil {
+		return nil, err
+	}
+
+	r := Response{Result: &MsgLookup{}}
+	err = json.Unmarshal(result, &r)
+	if err != nil {
+		return nil, err
+	}
+	if r.Error != nil {
+		return nil, xerrors.Errorf("error: %s", r.Error.(map[string]interface{})["message"])
+	}
+
+	if r.Result != nil {
+		return r.Result.(*MsgLookup), nil
+	}
+
+	return nil, xerrors.New("result is empty")
+}
+
+func LotusStateSearchMsg(rpcAddr, token string, msgCidStr string) (*MsgLookup, error) {
+	var params []interface{}
+	msgCid, err := cid.Parse(msgCidStr)
+	if err != nil {
+		return nil, err
+	}
+	params = append(params, &msgCid)
+
+	result, err := NewClient(rpcAddr, token, StateSearchMsg, params).Call()
+	if err != nil {
+		return nil, err
+	}
+
+	r := Response{Result: &MsgLookup{}}
+	err = json.Unmarshal(result, &r)
+	if err != nil {
+		return nil, err
+	}
+	if r.Error != nil {
+		return nil, xerrors.Errorf("error: %s", r.Error.(map[string]interface{})["message"])
+	}
+
+	if r.Result != nil {
+		return r.Result.(*MsgLookup), nil
+	}
+
+	return nil, nil
+}
