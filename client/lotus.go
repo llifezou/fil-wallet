@@ -9,6 +9,32 @@ import (
 	"golang.org/x/xerrors"
 )
 
+func LotusChainHead(rpcAddr, token string) (float64, error) {
+	var params []interface{}
+
+	result, err := NewClient(rpcAddr, token, ChainHead, params).Call()
+	if err != nil {
+		return 0, err
+	}
+
+	r := Response{}
+	err = json.Unmarshal(result, &r)
+	if err != nil {
+		return 0, err
+	}
+	if r.Error != nil {
+		return 0, xerrors.Errorf("error: %s", r.Error.(map[string]interface{})["message"])
+	}
+
+	if r.Result != nil {
+		infoMap := r.Result.(map[string]interface{})
+		height := infoMap["Height"].(float64)
+		return height, nil
+	}
+
+	return 0, nil
+}
+
 func LotusWalletBalance(rpcAddr, token string, addr string) (types.BigInt, error) {
 	result, err := NewClient(rpcAddr, token, WalletBalance, []string{addr}).Call()
 	if err != nil {
@@ -155,34 +181,36 @@ func LotusStateGetActor(rpcAddr, token string, addr string) (string, string, flo
 	return "", "", 0, "", xerrors.New("result is empty")
 }
 
-func LotusStateMinerInfo(rpcAddr, token string, minerId string) (string, string, []interface{}, error) {
+func LotusStateMinerInfo(rpcAddr, token string, minerId string) (string, string, string, float64, []interface{}, error) {
 	var params []interface{}
 	params = append(params, minerId)
 	params = append(params, types.EmptyTSK)
 
 	result, err := NewClient(rpcAddr, token, StateMinerInfo, params).Call()
 	if err != nil {
-		return "", "", []interface{}{}, err
+		return "", "", "", 0, []interface{}{}, err
 	}
 
 	r := Response{}
 	err = json.Unmarshal(result, &r)
 	if err != nil {
-		return "", "", []interface{}{}, err
+		return "", "", "", 0, []interface{}{}, err
 	}
 	if r.Error != nil {
-		return "", "", []interface{}{}, xerrors.Errorf("error: %s", r.Error.(map[string]interface{})["message"])
+		return "", "", "", 0, []interface{}{}, xerrors.Errorf("error: %s", r.Error.(map[string]interface{})["message"])
 	}
 
 	if r.Result != nil {
 		infoMap := r.Result.(map[string]interface{})
 		owner := infoMap["Owner"].(string)
 		worker := infoMap["Worker"].(string)
+		newWorker := infoMap["NewWorker"].(string)
+		workerChangeEpoch := infoMap["WorkerChangeEpoch"].(float64)
 		controlAddresses := infoMap["ControlAddresses"].([]interface{})
-		return owner, worker, controlAddresses, nil
+		return owner, worker, newWorker, workerChangeEpoch, controlAddresses, nil
 	}
 
-	return "", "", []interface{}{}, xerrors.New("result is empty")
+	return "", "", "", 0, []interface{}{}, xerrors.New("result is empty")
 }
 
 type MsgLookup struct {

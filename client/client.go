@@ -14,6 +14,7 @@ import (
 type Method string
 
 const (
+	ChainHead             Method = "Filecoin.ChainHead"
 	WalletBalance         Method = "Filecoin.WalletBalance"
 	MpoolPush             Method = "Filecoin.MpoolPush"
 	GasEstimateMessageGas Method = "Filecoin.GasEstimateMessageGas"
