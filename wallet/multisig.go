@@ -2351,7 +2351,12 @@ var msigSetControlProposeCmd = &cli.Command{
 		del := map[address.Address]struct{}{}
 		existing := map[address.Address]struct{}{}
 		for _, controlAddress := range controlAddressesStr {
-			ka, err := address.NewFromString(controlAddress.(string))
+			kaStr, err := client.LotusStateAccountKey(conf.Chain.RpcAddr, conf.Chain.Token, controlAddress.(string))
+			if err != nil {
+				return err
+			}
+
+			ka, err := address.NewFromString(kaStr)
 			if err != nil {
 				return err
 			}
@@ -2481,7 +2486,12 @@ var msigSetControlApproveCmd = &cli.Command{
 		del := map[address.Address]struct{}{}
 		existing := map[address.Address]struct{}{}
 		for _, controlAddress := range controlAddressesStr {
-			ka, err := address.NewFromString(controlAddress.(string))
+			kaStr, err := client.LotusStateAccountKey(conf.Chain.RpcAddr, conf.Chain.Token, controlAddress.(string))
+			if err != nil {
+				return err
+			}
+
+			ka, err := address.NewFromString(kaStr)
 			if err != nil {
 				return err
 			}
