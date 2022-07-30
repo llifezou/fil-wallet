@@ -280,3 +280,55 @@ func LotusStateSearchMsg(rpcAddr, token string, msgCidStr string) (*MsgLookup, e
 
 	return nil, nil
 }
+
+func LotusStateMinerAvailableBalance(rpcAddr, token string, miner string) (string, error) {
+	var params []interface{}
+	params = append(params, miner)
+	params = append(params, types.EmptyTSK)
+
+	result, err := NewClient(rpcAddr, token, StateMinerAvailableBalance, params).Call()
+	if err != nil {
+		return "", err
+	}
+
+	r := Response{}
+	err = json.Unmarshal(result, &r)
+	if err != nil {
+		return "", err
+	}
+	if r.Error != nil {
+		return "", xerrors.Errorf("error: %s", r.Error.(map[string]interface{})["message"])
+	}
+
+	if r.Result != nil {
+		return r.Result.(string), nil
+	}
+
+	return "", xerrors.New("result is empty")
+}
+
+func LotusStateAccountKey(rpcAddr, token string, addr string) (string, error) {
+	var params []interface{}
+	params = append(params, addr)
+	params = append(params, types.EmptyTSK)
+
+	result, err := NewClient(rpcAddr, token, StateAccountKey, params).Call()
+	if err != nil {
+		return "", err
+	}
+
+	r := Response{}
+	err = json.Unmarshal(result, &r)
+	if err != nil {
+		return "", err
+	}
+	if r.Error != nil {
+		return "", xerrors.Errorf("error: %s", r.Error.(map[string]interface{})["message"])
+	}
+
+	if r.Result != nil {
+		return r.Result.(string), nil
+	}
+
+	return "", xerrors.New("result is empty")
+}

@@ -14,16 +14,18 @@ import (
 type Method string
 
 const (
-	ChainHead             Method = "Filecoin.ChainHead"
-	WalletBalance         Method = "Filecoin.WalletBalance"
-	MpoolPush             Method = "Filecoin.MpoolPush"
-	GasEstimateMessageGas Method = "Filecoin.GasEstimateMessageGas"
-	MpoolGetNonce         Method = "Filecoin.MpoolGetNonce"
-	StateLookupID         Method = "Filecoin.StateLookupID"
-	StateGetActor         Method = "Filecoin.StateGetActor"
-	StateMinerInfo        Method = "Filecoin.StateMinerInfo"
-	StateWaitMsgLimited   Method = "Filecoin.StateWaitMsgLimited"
-	StateSearchMsg        Method = "Filecoin.StateSearchMsg"
+	ChainHead                  Method = "Filecoin.ChainHead"
+	WalletBalance              Method = "Filecoin.WalletBalance"
+	MpoolPush                  Method = "Filecoin.MpoolPush"
+	GasEstimateMessageGas      Method = "Filecoin.GasEstimateMessageGas"
+	MpoolGetNonce              Method = "Filecoin.MpoolGetNonce"
+	StateLookupID              Method = "Filecoin.StateLookupID"
+	StateGetActor              Method = "Filecoin.StateGetActor"
+	StateMinerInfo             Method = "Filecoin.StateMinerInfo"
+	StateWaitMsgLimited        Method = "Filecoin.StateWaitMsgLimited"
+	StateSearchMsg             Method = "Filecoin.StateSearchMsg"
+	StateMinerAvailableBalance Method = "Filecoin.StateMinerAvailableBalance"
+	StateAccountKey            Method = "Filecoin.StateAccountKey"
 )
 
 type client struct {
