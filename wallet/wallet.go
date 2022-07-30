@@ -32,6 +32,7 @@ var Cmd = &cli.Command{
 		walletBalance,
 		walletTransfer,
 		walletSendCmd,
+		minerCmd,
 		multisigCmd,
 		// todo call fvm
 	},
