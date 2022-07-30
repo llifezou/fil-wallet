@@ -26,6 +26,8 @@ import (
 	"time"
 )
 
+const emptyWorker = "<empty>"
+
 var multisigCmd = &cli.Command{
 	Name:  "msig",
 	Usage: "Interact with a multisig wallet",
@@ -85,6 +87,12 @@ var multisigCmd = &cli.Command{
 		msigChangeOwnerApproveCmd,
 		msigWithdrawBalanceProposeCmd,
 		msigWithdrawBalanceApproveCmd,
+		msigChangeWorkerProposeCmd,
+		msigChangeWorkerApproveCmd,
+		msigConfirmChangeWorkerProposeCmd,
+		msigConfirmChangeWorkerApproveCmd,
+		//msigControlSetProposeCmd,
+		//msigControlSetApproveCmd,
 	},
 }
 
@@ -1772,7 +1780,7 @@ var msigChangeOwnerProposeCmd = &cli.Command{
 			return err
 		}
 
-		owner, _, _, err := client.LotusStateMinerInfo(conf.Chain.RpcAddr, conf.Chain.Token, minerAddr.String())
+		owner, _, _, _, _, err := client.LotusStateMinerInfo(conf.Chain.RpcAddr, conf.Chain.Token, minerAddr.String())
 		if err != nil {
 			return err
 		}
@@ -1867,7 +1875,7 @@ var msigChangeOwnerApproveCmd = &cli.Command{
 			return err
 		}
 
-		owner, _, _, err := client.LotusStateMinerInfo(conf.Chain.RpcAddr, conf.Chain.Token, minerAddr.String())
+		owner, _, _, _, _, err := client.LotusStateMinerInfo(conf.Chain.RpcAddr, conf.Chain.Token, minerAddr.String())
 		if err != nil {
 			return err
 		}
@@ -1900,6 +1908,398 @@ var msigChangeOwnerApproveCmd = &cli.Command{
 		}
 
 		fmt.Fprintln(cctx.App.Writer, "change owner approve message CID:", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
+
+		return waitMsg(msgCid.String())
+	},
+}
+
+var msigChangeWorkerProposeCmd = &cli.Command{
+	Name:  "change-worker-propose",
+	Usage: "Propose an worker address change",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "from",
+			Usage:    "specify address to send message from",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "multisig",
+			Usage:    "specify multisig that will receive the message",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "miner",
+			Usage:    "specify miner being acted upon",
+			Required: true,
+		},
+	},
+	ArgsUsage: "[newWorker]",
+	Action: func(cctx *cli.Context) error {
+		if !cctx.Args().Present() {
+			return fmt.Errorf("must pass new worker address")
+		}
+
+		multisigAddr, sender, minerAddr, err := getInputs(cctx)
+		if err != nil {
+			return err
+		}
+
+		na, err := address.NewFromString(cctx.Args().First())
+		if err != nil {
+			return err
+		}
+
+		conf := config.Conf()
+		_, workerStr, newWorkerStr, workerChangeEpoch, controlAddressesStr, err := client.LotusStateMinerInfo(conf.Chain.RpcAddr, conf.Chain.Token, minerAddr.String())
+		if err != nil {
+			return err
+		}
+
+		newAddrStr, err := client.LotusStateLookupID(conf.Chain.RpcAddr, conf.Chain.Token, na.String())
+		if err != nil {
+			return err
+		}
+
+		newAddr, err := address.NewFromString(newAddrStr)
+		if err != nil {
+			return err
+		}
+
+		if newWorkerStr == emptyWorker {
+			if workerStr == newAddrStr {
+				return fmt.Errorf("worker address already set to %s", na)
+			}
+		} else {
+			if newWorkerStr == newAddrStr {
+				fmt.Fprintf(cctx.App.Writer, "Worker key change to %s successfully proposed.\n", na)
+				fmt.Fprintf(cctx.App.Writer, "Call 'confirm-change-worker' at or after height %d to complete.\n", workerChangeEpoch)
+				return fmt.Errorf("change to worker address %s already pending", na)
+			}
+		}
+
+		var controlAddresses []address.Address
+		for _, addrStr := range controlAddressesStr {
+			addr, err := address.NewFromString(addrStr.(string))
+			if err != nil {
+				return err
+			}
+			controlAddresses = append(controlAddresses, addr)
+		}
+
+		cwp := &miner5.ChangeWorkerAddressParams{
+			NewWorker:       newAddr,
+			NewControlAddrs: controlAddresses,
+		}
+
+		fmt.Fprintf(cctx.App.Writer, "newAddr: %s\n", newAddr)
+		fmt.Fprintf(cctx.App.Writer, "NewControlAddrs: %s\n", controlAddresses)
+
+		sp, err := actors.SerializeParams(cwp)
+		if err != nil {
+			return xerrors.Errorf("serializing params: %w", err)
+		}
+
+		nk, err := getAccount(cctx)
+		if err != nil {
+			return err
+		}
+
+		msiger := NewMsiger()
+
+		proto, err := msiger.MsigPropose(multisigAddr, minerAddr, big.Zero(), sender, uint64(builtin.MethodsMiner.ChangeWorkerAddress), sp)
+		if err != nil {
+			return xerrors.Errorf("proposing message: %w", err)
+		}
+
+		msgCid, err := send(nk, proto)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		fmt.Fprintln(cctx.App.Writer, "change worker propose message CID:", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
+
+		return waitProposalMsg(msgCid.String())
+	},
+}
+
+var msigChangeWorkerApproveCmd = &cli.Command{
+	Name:  "change-worker-approve",
+	Usage: "Approve an owner address change",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "from",
+			Usage:    "specify address to send message from",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "multisig",
+			Usage:    "specify multisig that will receive the message",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "miner",
+			Usage:    "specify miner being acted upon",
+			Required: true,
+		},
+	},
+	ArgsUsage: "[newWorker txnId proposer]",
+	Action: func(cctx *cli.Context) error {
+		if cctx.NArg() != 3 {
+			return fmt.Errorf("must have newWorker, txn Id, and proposer address")
+		}
+
+		multisigAddr, sender, minerAddr, err := getInputs(cctx)
+		if err != nil {
+			return err
+		}
+
+		na, err := address.NewFromString(cctx.Args().First())
+		if err != nil {
+			return err
+		}
+
+		conf := config.Conf()
+		newAddrStr, err := client.LotusStateLookupID(conf.Chain.RpcAddr, conf.Chain.Token, na.String())
+		if err != nil {
+			return err
+		}
+		newWorker, err := address.NewFromString(newAddrStr)
+		if err != nil {
+			return err
+		}
+
+		txid, err := strconv.ParseUint(cctx.Args().Get(1), 10, 64)
+		if err != nil {
+			return err
+		}
+
+		proposer, err := address.NewFromString(cctx.Args().Get(2))
+		if err != nil {
+			return err
+		}
+
+		_, workerStr, newWorkerStr, _, controlAddressesStr, err := client.LotusStateMinerInfo(conf.Chain.RpcAddr, conf.Chain.Token, minerAddr.String())
+
+		if newWorkerStr == emptyWorker {
+			if workerStr == newAddrStr {
+				return fmt.Errorf("worker address already set to %s", na)
+			}
+		} else {
+			if newWorkerStr == newAddrStr {
+				fmt.Fprintf(cctx.App.Writer, "Worker key change to %s successfully proposed.\n", na)
+				return fmt.Errorf("change to worker address %s already pending", na)
+			}
+		}
+
+		var controlAddresses []address.Address
+		for _, addrStr := range controlAddressesStr {
+			addr, err := address.NewFromString(addrStr.(string))
+			if err != nil {
+				return err
+			}
+			controlAddresses = append(controlAddresses, addr)
+		}
+
+		cwp := &miner5.ChangeWorkerAddressParams{
+			NewWorker:       newWorker,
+			NewControlAddrs: controlAddresses,
+		}
+
+		fmt.Fprintf(cctx.App.Writer, "newAddr: %s\n", newWorker)
+		fmt.Fprintf(cctx.App.Writer, "NewControlAddrs: %s\n", controlAddresses)
+
+		sp, err := actors.SerializeParams(cwp)
+		if err != nil {
+			return xerrors.Errorf("serializing params: %w", err)
+		}
+
+		nk, err := getAccount(cctx)
+		if err != nil {
+			return err
+		}
+
+		msiger := NewMsiger()
+
+		proto, err := msiger.MsigApproveTxnHash(multisigAddr, txid, proposer, minerAddr, big.Zero(), sender, uint64(builtin.MethodsMiner.ChangeWorkerAddress), sp)
+		if err != nil {
+			return xerrors.Errorf("approving message: %w", err)
+		}
+
+		msgCid, err := send(nk, proto)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		fmt.Fprintln(cctx.App.Writer, "change worker approve message CID:", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
+
+		return waitMsg(msgCid.String())
+	},
+}
+
+var msigConfirmChangeWorkerProposeCmd = &cli.Command{
+	Name:      "confirm-change-worker-propose",
+	Usage:     "Confirm an worker address change",
+	ArgsUsage: "[newWorker]",
+	Action: func(cctx *cli.Context) error {
+		if !cctx.Args().Present() {
+			return fmt.Errorf("must pass new worker address")
+		}
+
+		multisigAddr, sender, minerAddr, err := getInputs(cctx)
+		if err != nil {
+			return err
+		}
+
+		na, err := address.NewFromString(cctx.Args().First())
+		if err != nil {
+			return err
+		}
+
+		conf := config.Conf()
+		_, _, newWorkerStr, workerChangeEpoch, _, err := client.LotusStateMinerInfo(conf.Chain.RpcAddr, conf.Chain.Token, minerAddr.String())
+		if err != nil {
+			return err
+		}
+
+		newAddrStr, err := client.LotusStateLookupID(conf.Chain.RpcAddr, conf.Chain.Token, na.String())
+		if err != nil {
+			return err
+		}
+
+		newAddr, err := address.NewFromString(newAddrStr)
+		if err != nil {
+			return err
+		}
+
+		if newWorkerStr == emptyWorker {
+			return xerrors.Errorf("no worker key change proposed")
+		} else if newWorkerStr != newAddrStr {
+			return xerrors.Errorf("worker key %s does not match current worker key proposal %s", newAddr, newWorkerStr)
+		}
+
+		height, err := client.LotusChainHead(conf.Chain.RpcAddr, conf.Chain.Token)
+		if err != nil {
+			return xerrors.Errorf("failed to get the chain head: %w", err)
+		} else if height < workerChangeEpoch {
+			return xerrors.Errorf("worker key change cannot be confirmed until %d, current height is %d", workerChangeEpoch, height)
+		}
+
+		nk, err := getAccount(cctx)
+		if err != nil {
+			return err
+		}
+
+		msiger := NewMsiger()
+
+		proto, err := msiger.MsigPropose(multisigAddr, minerAddr, big.Zero(), sender, uint64(builtin.MethodsMiner.ConfirmUpdateWorkerKey), nil)
+		if err != nil {
+			return xerrors.Errorf("proposing message: %w", err)
+		}
+
+		msgCid, err := send(nk, proto)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		fmt.Fprintln(cctx.App.Writer, "confirm worker propose message CID:", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
+
+		return waitProposalMsg(msgCid.String())
+	},
+}
+
+var msigConfirmChangeWorkerApproveCmd = &cli.Command{
+	Name:  "confirm-change-worker-approve",
+	Usage: "Confirm an worker address change",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "from",
+			Usage:    "specify address to send message from",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "multisig",
+			Usage:    "specify multisig that will receive the message",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "miner",
+			Usage:    "specify miner being acted upon",
+			Required: true,
+		},
+	},
+	ArgsUsage: "[newWorker txnId proposer]",
+	Action: func(cctx *cli.Context) error {
+		if cctx.NArg() != 3 {
+			return fmt.Errorf("must have newWorker, txn Id, and proposer address")
+		}
+
+		multisigAddr, sender, minerAddr, err := getInputs(cctx)
+		if err != nil {
+			return err
+		}
+
+		na, err := address.NewFromString(cctx.Args().First())
+		if err != nil {
+			return err
+		}
+
+		conf := config.Conf()
+		newAddrStr, err := client.LotusStateLookupID(conf.Chain.RpcAddr, conf.Chain.Token, na.String())
+		if err != nil {
+			return err
+		}
+
+		txid, err := strconv.ParseUint(cctx.Args().Get(1), 10, 64)
+		if err != nil {
+			return err
+		}
+
+		proposer, err := address.NewFromString(cctx.Args().Get(2))
+		if err != nil {
+			return err
+		}
+
+		_, _, newWorkerStr, workerChangeEpoch, _, err := client.LotusStateMinerInfo(conf.Chain.RpcAddr, conf.Chain.Token, minerAddr.String())
+
+		if newWorkerStr == emptyWorker {
+			return xerrors.Errorf("no worker key change proposed")
+		} else if newWorkerStr != newAddrStr {
+			return xerrors.Errorf("worker key %s does not match current worker key proposal %s", newAddrStr, newWorkerStr)
+		}
+
+		height, err := client.LotusChainHead(conf.Chain.RpcAddr, conf.Chain.Token)
+		if err != nil {
+			return xerrors.Errorf("failed to get the chain head: %w", err)
+		} else if height < workerChangeEpoch {
+			return xerrors.Errorf("worker key change cannot be confirmed until %d, current height is %d", workerChangeEpoch, height)
+		}
+
+		nk, err := getAccount(cctx)
+		if err != nil {
+			return err
+		}
+
+		msiger := NewMsiger()
+
+		proto, err := msiger.MsigApproveTxnHash(multisigAddr, txid, proposer, minerAddr, big.Zero(), sender, uint64(builtin.MethodsMiner.ConfirmUpdateWorkerKey), nil)
+		if err != nil {
+			return xerrors.Errorf("approving message: %w", err)
+		}
+
+		msgCid, err := send(nk, proto)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		fmt.Fprintln(cctx.App.Writer, "change worker approve message CID:", msgCid)
 		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
 		return waitMsg(msgCid.String())
