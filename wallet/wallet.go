@@ -41,8 +41,28 @@ var Cmd = &cli.Command{
 var mnemonicNew = &cli.Command{
 	Name:  "mnemonic",
 	Usage: "Generate a mnemonic",
-	Action: func(_ *cli.Context) error {
-		mnemonic, err := hdwallet.NewMnemonic()
+	Flags: []cli.Flag{
+		&cli.IntFlag{
+			Name:  "mnemonic-count",
+			Usage: "mnemonic count",
+			Value: 12,
+		},
+	},
+	Before: func(cctx *cli.Context) error {
+		mc := cctx.Int("mnemonic-count")
+		if mc == 12 || mc == 24 {
+			return nil
+		}
+
+		return fmt.Errorf("--mnemonic-count must be 12 / 24")
+	},
+	Action: func(cctx *cli.Context) error {
+		mt := hdwallet.Mnemonic12
+		if mc := cctx.Int("mnemonic-count"); mc == 24 {
+			mt = hdwallet.Mnemonic24
+		}
+
+		mnemonic, err := hdwallet.NewMnemonic(mt)
 		if err != nil {
 			return err
 		}

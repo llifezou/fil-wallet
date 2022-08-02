@@ -18,7 +18,7 @@ require github.com/fatih/color v1.13.0
 require (
 	github.com/filecoin-project/go-state-types v0.1.10
 	github.com/filecoin-project/lotus v1.16.0
-	github.com/llifezou/hdwallet v0.0.1
+	github.com/llifezou/hdwallet v0.0.2
 	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f
 )
 
@@ -41,6 +41,7 @@ require (
 	github.com/GeertJohan/go.rice v1.0.2 // indirect
 	github.com/Gurpartap/async v0.0.0-20180927173644-4f7f499dd9ee // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
+	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/akavel/rsrc v0.8.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
