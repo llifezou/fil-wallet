@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"crypto/rand"
 	"fmt"
 	"github.com/fatih/color"
 	"github.com/filecoin-project/go-address"
@@ -8,14 +9,19 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/builtin"
 	"github.com/filecoin-project/lotus/chain/actors"
+	"github.com/filecoin-project/lotus/chain/actors/builtin/power"
 	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/filecoin-project/lotus/lib/tablewriter"
 	miner5 "github.com/filecoin-project/specs-actors/v5/actors/builtin/miner"
+	power6 "github.com/filecoin-project/specs-actors/v6/actors/builtin/power"
+	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/llifezou/fil-wallet/client"
 	"github.com/llifezou/fil-wallet/config"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/xerrors"
 	"os"
+	"strings"
 )
 
 var minerCmd = &cli.Command{
@@ -52,13 +58,102 @@ var minerCmd = &cli.Command{
 			Usage: "wallet index",
 			Value: 0,
 		},
+		&cli.StringFlag{
+			Name:     "conf-path",
+			Usage:    "config.yaml path",
+			Value:    "",
+			Required: true,
+		},
+	},
+	Before: func(c *cli.Context) error {
+		config.InitConfig(c.String("conf-path"))
+		return nil
 	},
 	Subcommands: []*cli.Command{
+		newMinerCmd,
 		actorWithdrawCmd,
 		actorSetOwnerCmd,
 		actorControl,
 		actorProposeChangeWorker,
 		actorConfirmChangeWorker,
+	},
+}
+
+var newMinerCmd = &cli.Command{
+	Name:  "new-miner",
+	Usage: "new miner, test test test use",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "owner",
+			Usage:    "miner owner",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "worker",
+			Usage:    "miner worker",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "from",
+			Usage:    "msg from",
+			Required: true,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		owner, err := address.NewFromString(cctx.String("owner"))
+		if err != nil {
+			return err
+		}
+		worker, err := address.NewFromString(cctx.String("worker"))
+		if err != nil {
+			return err
+		}
+		from, err := address.NewFromString(cctx.String("from"))
+		if err != nil {
+			return err
+		}
+		pk, _, err := crypto.GenerateEd25519Key(rand.Reader)
+		if err != nil {
+			return err
+		}
+		peerid, err := peer.IDFromPrivateKey(pk)
+		if err != nil {
+			return xerrors.Errorf("peer ID from private key: %w", err)
+		}
+
+		params, err := actors.SerializeParams(&power6.CreateMinerParams{
+			Owner:               owner,
+			Worker:              worker,
+			WindowPoStProofType: abi.RegisteredPoStProof_StackedDrgWindow32GiBV1,
+			Peer:                abi.PeerID(peerid),
+		})
+		if err != nil {
+			return err
+		}
+
+		nk, err := getAccount(cctx)
+		if err != nil {
+			return err
+		}
+
+		msgCid, err := send(nk, &types.Message{
+			To:    power.Address,
+			From:  from,
+			Value: big.Zero(),
+
+			Method: power.Methods.CreateMiner,
+			Params: params,
+
+			GasLimit: 0,
+		})
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		fmt.Printf("New miner in message %s\n", msgCid.String())
+
+		return waitMsg(msgCid.String())
 	},
 }
 
@@ -127,9 +222,20 @@ var actorWithdrawCmd = &cli.Command{
 			return err
 		}
 
+		fromStr, err := client.LotusStateAccountKey(conf.Chain.RpcAddr, conf.Chain.Token, owner.String())
+		if err != nil {
+			return err
+		}
+		from, err := address.NewFromString(fromStr)
+		if err != nil {
+			return err
+		}
+		if err != nil {
+			return fmt.Errorf("parsing address %s: %w", act, err)
+		}
 		msgCid, err := send(nk, &types.Message{
 			To:     maddr,
-			From:   owner,
+			From:   from,
 			Value:  types.NewInt(0),
 			Method: builtin.MethodsMiner.WithdrawBalance,
 			Params: params,
@@ -140,7 +246,7 @@ var actorWithdrawCmd = &cli.Command{
 		}
 
 		fmt.Printf("Requested rewards withdrawal in message %s\n", msgCid.String())
-
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 		return waitMsg(msgCid.String())
 	},
 }
@@ -227,8 +333,20 @@ var actorSetOwnerCmd = &cli.Command{
 			return err
 		}
 
+		fromStr, err := client.LotusStateAccountKey(conf.Chain.RpcAddr, conf.Chain.Token, fromAddrId.String())
+		if err != nil {
+			return err
+		}
+		from, err := address.NewFromString(fromStr)
+		if err != nil {
+			return err
+		}
+		if err != nil {
+			return fmt.Errorf("parsing address %s: %w", act, err)
+		}
+
 		msgCid, err := send(nk, &types.Message{
-			From:   fromAddrId,
+			From:   from,
 			To:     maddr,
 			Method: builtin.MethodsMiner.ChangeOwnerAddress,
 			Value:  big.Zero(),
@@ -240,7 +358,7 @@ var actorSetOwnerCmd = &cli.Command{
 		}
 
 		fmt.Printf("Message CID: %s\n", msgCid.String())
-
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 		return waitMsg(msgCid.String())
 	},
 }
@@ -298,6 +416,11 @@ var actorControlList = &cli.Command{
 
 			k, err := client.LotusStateAccountKey(conf.Chain.RpcAddr, conf.Chain.Token, a)
 			if err != nil {
+				if strings.Contains(err.Error(), "multisig") {
+					fmt.Printf("%s\t%s (multisig) \n", name, a)
+					return
+				}
+
 				fmt.Printf("%s\t%s: error getting account key: %s\n", name, a, err)
 				return
 			}
@@ -437,8 +560,20 @@ var actorControlSet = &cli.Command{
 			return err
 		}
 
+		fromStr, err := client.LotusStateAccountKey(conf.Chain.RpcAddr, conf.Chain.Token, owner.String())
+		if err != nil {
+			return err
+		}
+		from, err := address.NewFromString(fromStr)
+		if err != nil {
+			return err
+		}
+		if err != nil {
+			return fmt.Errorf("parsing address %s: %w", act, err)
+		}
+
 		msgCid, err := send(nk, &types.Message{
-			From:   owner,
+			From:   from,
 			To:     maddr,
 			Method: builtin.MethodsMiner.ChangeWorkerAddress,
 			Value:  big.Zero(),
@@ -450,7 +585,7 @@ var actorControlSet = &cli.Command{
 		}
 
 		fmt.Printf("Message CID: %s\n", msgCid.String())
-
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 		return waitMsg(msgCid.String())
 	},
 }
@@ -546,8 +681,20 @@ var actorProposeChangeWorker = &cli.Command{
 			return err
 		}
 
+		fromStr, err := client.LotusStateAccountKey(conf.Chain.RpcAddr, conf.Chain.Token, owner.String())
+		if err != nil {
+			return err
+		}
+		from, err := address.NewFromString(fromStr)
+		if err != nil {
+			return err
+		}
+		if err != nil {
+			return fmt.Errorf("parsing address %s: %w", act, err)
+		}
+
 		msgCid, err := send(nk, &types.Message{
-			From:   owner,
+			From:   from,
 			To:     maddr,
 			Method: builtin.MethodsMiner.ChangeWorkerAddress,
 			Value:  big.Zero(),
@@ -559,7 +706,7 @@ var actorProposeChangeWorker = &cli.Command{
 		}
 
 		fmt.Printf("Message CID: %s\n", msgCid.String())
-
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 		err = waitMsg(msgCid.String())
 		if err != nil {
 			return err
@@ -571,7 +718,7 @@ var actorProposeChangeWorker = &cli.Command{
 		}
 
 		fmt.Fprintf(cctx.App.Writer, "Worker key change to %s successfully proposed.\n", na)
-		fmt.Fprintf(cctx.App.Writer, "Call 'confirm-change-worker' at or after height %d to complete.\n", workerChangeEpoch)
+		fmt.Fprintf(cctx.App.Writer, "Call 'confirm-change-worker' at or after height %d to complete.\n", uint64(workerChangeEpoch))
 
 		return nil
 	},
@@ -644,7 +791,7 @@ var actorConfirmChangeWorker = &cli.Command{
 		if err != nil {
 			return xerrors.Errorf("failed to get the chain head: %w", err)
 		} else if height < workerChangeEpoch {
-			return xerrors.Errorf("worker key change cannot be confirmed until %d, current height is %d", workerChangeEpoch, height)
+			return xerrors.Errorf("worker key change cannot be confirmed until %d, current height is %d", uint64(workerChangeEpoch), uint64(height))
 		}
 
 		nk, err := getAccount(cctx)
@@ -652,8 +799,20 @@ var actorConfirmChangeWorker = &cli.Command{
 			return err
 		}
 
+		fromStr, err := client.LotusStateAccountKey(conf.Chain.RpcAddr, conf.Chain.Token, owner.String())
+		if err != nil {
+			return err
+		}
+		from, err := address.NewFromString(fromStr)
+		if err != nil {
+			return err
+		}
+		if err != nil {
+			return fmt.Errorf("parsing address %s: %w", act, err)
+		}
+
 		msgCid, err := send(nk, &types.Message{
-			From:   owner,
+			From:   from,
 			To:     maddr,
 			Method: builtin.MethodsMiner.ConfirmUpdateWorkerKey,
 			Value:  big.Zero(),
@@ -664,7 +823,7 @@ var actorConfirmChangeWorker = &cli.Command{
 		}
 
 		fmt.Printf("Confirm Message CID: %s\n", msgCid.String())
-
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 		err = waitMsg(msgCid.String())
 		if err != nil {
 			return err
