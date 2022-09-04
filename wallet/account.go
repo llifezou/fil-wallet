@@ -134,3 +134,67 @@ func getAccount(cctx *cli.Context) (*wallet.Key, error) {
 
 	return nk, nil
 }
+
+func getAccountList(cctx *cli.Context, index int) (*wallet.Key, error) {
+	conf := config.Conf()
+
+	if conf.Account.Mnemonic == "" {
+		return nil, xerrors.New("mnemonic is null")
+	}
+
+	var password = ""
+	if conf.Account.Password {
+		color.Red("密码参与派生，请保存好密码！")
+		color.Red("the password is involved in the derivation, please save the password!")
+
+		fmt.Printf("\n")
+
+		var err error
+		password, err = util.GetPassword(true)
+		if err != nil {
+			color.Red(fmt.Sprintf("Failed get password: %s", err.Error()))
+			os.Exit(1)
+		}
+	}
+
+	t := cctx.String("type")
+	var sigType crypto.SigType
+	switch t {
+	case "secp256k1":
+		sigType = crypto.SigTypeSecp256k1
+	case "bls":
+		sigType = crypto.SigTypeBLS
+	default:
+		return nil, xerrors.Errorf("--type: %s, TypeUnknown", t)
+	}
+
+	seed, err := hdwallet.GenerateSeedFromMnemonic(conf.Account.Mnemonic, password)
+	if err != nil {
+		return nil, err
+	}
+
+	path := hdwallet.FilPath(index)
+	log.Infow("wallet info", "type", t, "index", index, "path", path)
+
+	extendSeed, err := hdwallet.GetExtendSeedFromPath(path, seed)
+	if err != nil {
+		return nil, err
+	}
+
+	pk, err := sigs.Generate(sigType, extendSeed)
+	if err != nil {
+		return nil, err
+	}
+
+	ki := types.KeyInfo{
+		Type:       types.KeyType(t),
+		PrivateKey: pk,
+	}
+
+	nk, err := wallet.NewKey(ki)
+	if err != nil {
+		return nil, err
+	}
+
+	return nk, nil
+}
