@@ -27,6 +27,7 @@ var Cmd = &cli.Command{
 	Subcommands: []*cli.Command{
 		mnemonicNew,
 		walletNew,
+		walletList,
 		walletSign,
 		walletVerify,
 		walletBalance,
@@ -47,8 +48,16 @@ var mnemonicNew = &cli.Command{
 			Usage: "mnemonic count",
 			Value: 12,
 		},
+		&cli.StringFlag{
+			Name:     "conf-path",
+			Usage:    "config.yaml path",
+			Value:    "",
+			Required: true,
+		},
 	},
 	Before: func(cctx *cli.Context) error {
+		config.InitConfig(cctx.String("conf-path"))
+
 		mc := cctx.Int("mnemonic-count")
 		if mc == 12 || mc == 24 {
 			return nil
@@ -71,8 +80,7 @@ var mnemonicNew = &cli.Command{
 		color.Red("Be sure to save mnemonic. Losing mnemonic will cause all property damage!")
 
 		fmt.Printf("\n")
-		color.Blue(mnemonic)
-		fmt.Printf("\n")
+		fmt.Println(mnemonic)
 		return nil
 	},
 }
@@ -96,6 +104,16 @@ var walletNew = &cli.Command{
 			Usage: "export key",
 			Value: false,
 		},
+		&cli.StringFlag{
+			Name:     "conf-path",
+			Usage:    "config.yaml path",
+			Value:    "",
+			Required: true,
+		},
+	},
+	Before: func(c *cli.Context) error {
+		config.InitConfig(c.String("conf-path"))
+		return nil
 	},
 	Action: func(cctx *cli.Context) error {
 		nk, err := getAccount(cctx)
@@ -111,8 +129,61 @@ var walletNew = &cli.Command{
 				return err
 			}
 
-			fmt.Printf("\n")
-			color.Blue(hex.EncodeToString(b))
+			fmt.Println(hex.EncodeToString(b))
+		}
+
+		return nil
+	},
+}
+
+var walletList = &cli.Command{
+	Name:  "list",
+	Usage: "Generate list key of the given type and 0 - index-end",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "type",
+			Usage: "wallet type, ps: secp256k1, bls",
+			Value: "secp256k1",
+		},
+		&cli.IntFlag{
+			Name:  "index-end",
+			Usage: "wallet index",
+			Value: 0,
+		},
+		&cli.BoolFlag{
+			Name:  "export",
+			Usage: "export key",
+			Value: false,
+		},
+		&cli.StringFlag{
+			Name:     "conf-path",
+			Usage:    "config.yaml path",
+			Value:    "",
+			Required: true,
+		},
+	},
+	Before: func(c *cli.Context) error {
+		config.InitConfig(c.String("conf-path"))
+		return nil
+	},
+	Action: func(cctx *cli.Context) error {
+		indexEnd := cctx.Int("index-end")
+		for i := 0; i <= indexEnd; i++ {
+			nk, err := getAccountList(cctx, i)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(nk.Address.String())
+
+			if cctx.Bool("export") {
+				b, err := json.Marshal(nk.KeyInfo)
+				if err != nil {
+					return err
+				}
+
+				fmt.Println(hex.EncodeToString(b))
+			}
 		}
 
 		return nil
@@ -133,6 +204,16 @@ var walletSign = &cli.Command{
 			Usage: "wallet index",
 			Value: 0,
 		},
+		&cli.StringFlag{
+			Name:     "conf-path",
+			Usage:    "config.yaml path",
+			Value:    "",
+			Required: true,
+		},
+	},
+	Before: func(c *cli.Context) error {
+		config.InitConfig(c.String("conf-path"))
+		return nil
 	},
 	ArgsUsage: "<signing address> <hexMessage>",
 	Action: func(cctx *cli.Context) error {
@@ -184,6 +265,16 @@ var walletVerify = &cli.Command{
 			Usage: "wallet index",
 			Value: 0,
 		},
+		&cli.StringFlag{
+			Name:     "conf-path",
+			Usage:    "config.yaml path",
+			Value:    "",
+			Required: true,
+		},
+	},
+	Before: func(c *cli.Context) error {
+		config.InitConfig(c.String("conf-path"))
+		return nil
 	},
 	ArgsUsage: "<signing address> <hexMessage> <signature>",
 	Action: func(cctx *cli.Context) error {
@@ -245,6 +336,16 @@ var walletBalance = &cli.Command{
 			Usage: "wallet index",
 			Value: 0,
 		},
+		&cli.StringFlag{
+			Name:     "conf-path",
+			Usage:    "config.yaml path",
+			Value:    "",
+			Required: true,
+		},
+	},
+	Before: func(c *cli.Context) error {
+		config.InitConfig(c.String("conf-path"))
+		return nil
 	},
 	Action: func(cctx *cli.Context) error {
 		var addr address.Address
@@ -269,9 +370,9 @@ var walletBalance = &cli.Command{
 		}
 
 		if balance.Equals(types.NewInt(0)) {
-			fmt.Printf("%s (warning: may display 0 if chain sync in progress)\n", types.FIL(balance))
+			fmt.Printf("%s (warning: may display 0 if chain sync in progress)\n", addr.String())
 		} else {
-			fmt.Printf("%s\n", types.FIL(balance))
+			fmt.Printf("%s %s\n", addr.String(), types.FIL(balance))
 		}
 
 		return nil
@@ -324,6 +425,16 @@ var walletTransfer = &cli.Command{
 			Usage: "wallet index",
 			Value: 0,
 		},
+		&cli.StringFlag{
+			Name:     "conf-path",
+			Usage:    "config.yaml path",
+			Value:    "",
+			Required: true,
+		},
+	},
+	Before: func(c *cli.Context) error {
+		config.InitConfig(c.String("conf-path"))
+		return nil
 	},
 	Action: func(cctx *cli.Context) error {
 		nk, err := getAccount(cctx)
@@ -411,6 +522,16 @@ var walletSendCmd = &cli.Command{
 			Usage: "wallet index",
 			Value: 0,
 		},
+		&cli.StringFlag{
+			Name:     "conf-path",
+			Usage:    "config.yaml path",
+			Value:    "",
+			Required: true,
+		},
+	},
+	Before: func(c *cli.Context) error {
+		config.InitConfig(c.String("conf-path"))
+		return nil
 	},
 	Action: func(cctx *cli.Context) error {
 		nk, err := getAccount(cctx)
