@@ -36,6 +36,108 @@
 
 #### use
 
+```
+./fil-wallet wallet -h           
+NAME:
+   fil-wallet wallet - fil wallet
+
+USAGE:
+   fil-wallet wallet command [command options] [arguments...]
+
+COMMANDS:
+   mnemonic  Generate a mnemonic
+   generate  Generate a key of the given type and index
+   sign      Sign a message
+   verify    Verify the signature of a message
+   balance   Get account balance
+   transfer  Transfer funds between accounts
+   send      Send funds between accounts
+   miner     manipulate the miner actor
+   msig      Interact with a multisig wallet
+   help, h   Shows a list of commands or help for one command
+
+OPTIONS:
+   --help, -h  show help (default: false)
+
+```
+```
+./fil-wallet wallet miner -h
+NAME:
+   fil-wallet wallet miner - manipulate the miner actor
+
+USAGE:
+   fil-wallet wallet miner command [command options] [arguments...]
+
+COMMANDS:
+   withdraw               withdraw available balance
+   set-owner              Set owner address (this command should be invoked twice, first with the old owner as the senderAddress, and then with the new owner)
+   control                Manage control addresses
+   propose-change-worker  Propose a worker address change
+   confirm-change-worker  Confirm a worker address change
+   help, h                Shows a list of commands or help for one command
+
+OPTIONS:
+   --gas-premium value  specify gas price to use in AttoFIL (default: "0")
+   --gas-feecap value   specify gas fee cap to use in AttoFIL (default: "0")
+   --gas-limit value    specify gas limit (default: 0)
+   --nonce value        specify the nonce to use (default: 0)
+   --type value         wallet type, ps: secp256k1, bls (default: "secp256k1")
+   --index value        wallet index (default: 0)
+   --help, -h           show help (default: false)
+
+```
+```
+ ./fil-wallet wallet msig -h 
+NAME:
+   fil-wallet wallet msig - Interact with a multisig wallet
+
+USAGE:
+   fil-wallet wallet msig command [command options] [arguments...]
+
+COMMANDS:
+   create                         Create a new multisig wallet
+   propose                        Propose a multisig transaction
+   remove-propose                 Propose to remove a signer
+   approve                        Approve a multisig message
+   cancel                         Cancel a multisig message
+   transfer-propose               Propose a multisig transaction
+   transfer-approve               Approve a multisig message
+   transfer-cancel                Cancel transfer multisig message
+   add-propose                    Propose to add a signer
+   add-approve                    Approve a message to add a signer
+   add-cancel                     Cancel a message to add a signer
+   swap-propose                   Propose to swap signers
+   swap-approve                   Approve a message to swap signers
+   swap-cancel                    Cancel a message to swap signers
+   lock-propose                   Propose to lock up some balance
+   lock-approve                   Approve a message to lock up some balance
+   lock-cancel                    Cancel a message to lock up some balance
+   threshold-propose              Propose setting a different signing threshold on the account
+   approve-threshold              Approve a message to setting a different signing threshold on the account
+   change-owner-propose           Propose an owner address change
+   change-owner-approve           Approve an owner address change
+   withdraw-propose               Propose to withdraw FIL from the miner
+   withdraw-approve               Approve to withdraw FIL from the miner
+   change-worker-propose          Propose an worker address change
+   change-worker-approve          Approve an owner address change
+   confirm-change-worker-propose  Confirm an worker address change
+   confirm-change-worker-approve  Confirm an worker address change
+   set-control-propose            set control address(-es) propose
+   set-control-approve            set control address(-es) approve
+   help, h                        Shows a list of commands or help for one command
+
+OPTIONS:
+   --gas-premium value  specify gas price to use in AttoFIL (default: "0")
+   --gas-feecap value   specify gas fee cap to use in AttoFIL (default: "0")
+   --gas-limit value    specify gas limit (default: 0)
+   --nonce value        specify the nonce to use (default: 0)
+   --type value         wallet type, ps: secp256k1, bls (default: "secp256k1")
+   --index value        wallet index (default: 0)
+   --help, -h           show help (default: false)
+   
+
+```
+
 - build and edit config.yaml
 
   - `make all`
