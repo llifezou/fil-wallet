@@ -8,7 +8,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/lotus/chain/types"
-	"github.com/filecoin-project/lotus/chain/wallet"
+	"github.com/filecoin-project/lotus/chain/wallet/key"
 	"github.com/filecoin-project/specs-actors/v7/actors/builtin"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/llifezou/fil-sdk/sigs"
@@ -235,7 +235,7 @@ var walletSign = &cli.Command{
 			return err
 		}
 
-		sig, err := sigs.Sign(wallet.ActSigType(nk.Type), nk.PrivateKey, msg)
+		sig, err := sigs.Sign(key.ActSigType(nk.Type), nk.PrivateKey, msg)
 		if err != nil {
 			return err
 		}

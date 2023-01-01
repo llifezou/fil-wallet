@@ -7,7 +7,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/lotus/chain/types"
-	"github.com/filecoin-project/lotus/chain/wallet"
+	"github.com/filecoin-project/lotus/chain/wallet/key"
 	"github.com/llifezou/fil-sdk/sigs"
 	_ "github.com/llifezou/fil-sdk/sigs/bls"
 	_ "github.com/llifezou/fil-sdk/sigs/secp"
@@ -20,7 +20,7 @@ import (
 	"strings"
 )
 
-func getAccount(cctx *cli.Context) (*wallet.Key, error) {
+func getAccount(cctx *cli.Context) (*key.Key, error) {
 	conf := config.Conf()
 
 	if conf.Account.Key != "" {
@@ -65,7 +65,7 @@ func getAccount(cctx *cli.Context) (*wallet.Key, error) {
 			return nil, fmt.Errorf("unrecognized format: %s", cctx.String("format"))
 		}
 
-		nk, err := wallet.NewKey(ki)
+		nk, err := key.NewKey(ki)
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +127,7 @@ func getAccount(cctx *cli.Context) (*wallet.Key, error) {
 		PrivateKey: pk,
 	}
 
-	nk, err := wallet.NewKey(ki)
+	nk, err := key.NewKey(ki)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +135,7 @@ func getAccount(cctx *cli.Context) (*wallet.Key, error) {
 	return nk, nil
 }
 
-func getAccountList(cctx *cli.Context, index int) (*wallet.Key, error) {
+func getAccountList(cctx *cli.Context, index int) (*key.Key, error) {
 	conf := config.Conf()
 
 	if conf.Account.Mnemonic == "" {
@@ -191,7 +191,7 @@ func getAccountList(cctx *cli.Context, index int) (*wallet.Key, error) {
 		PrivateKey: pk,
 	}
 
-	nk, err := wallet.NewKey(ki)
+	nk, err := key.NewKey(ki)
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
+	actorstypes "github.com/filecoin-project/go-state-types/actors"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/builtin"
 	"github.com/filecoin-project/go-state-types/network"
@@ -2863,7 +2864,7 @@ func NewMsiger() *msig {
 }
 
 func (m *msig) messageBuilder(from address.Address) (multisig.MessageBuilder, error) {
-	av, err := actors.VersionForNetwork(network.Version16)
+	av, err := actorstypes.VersionForNetwork(network.Version17)
 	if err != nil {
 		return nil, err
 	}
