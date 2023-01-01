@@ -59,10 +59,9 @@ var minerCmd = &cli.Command{
 			Value: 0,
 		},
 		&cli.StringFlag{
-			Name:     "conf-path",
-			Usage:    "config.yaml path",
-			Value:    "",
-			Required: true,
+			Name:  "conf-path",
+			Usage: "config.yaml path",
+			Value: "",
 		},
 	},
 	Before: func(c *cli.Context) error {

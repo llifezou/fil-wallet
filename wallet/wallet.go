@@ -49,10 +49,9 @@ var mnemonicNew = &cli.Command{
 			Value: 12,
 		},
 		&cli.StringFlag{
-			Name:     "conf-path",
-			Usage:    "config.yaml path",
-			Value:    "",
-			Required: true,
+			Name:  "conf-path",
+			Usage: "config.yaml path",
+			Value: "",
 		},
 	},
 	Before: func(cctx *cli.Context) error {
@@ -105,10 +104,9 @@ var walletNew = &cli.Command{
 			Value: false,
 		},
 		&cli.StringFlag{
-			Name:     "conf-path",
-			Usage:    "config.yaml path",
-			Value:    "",
-			Required: true,
+			Name:  "conf-path",
+			Usage: "config.yaml path",
+			Value: "",
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -156,10 +154,9 @@ var walletList = &cli.Command{
 			Value: false,
 		},
 		&cli.StringFlag{
-			Name:     "conf-path",
-			Usage:    "config.yaml path",
-			Value:    "",
-			Required: true,
+			Name:  "conf-path",
+			Usage: "config.yaml path",
+			Value: "",
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -205,10 +202,9 @@ var walletSign = &cli.Command{
 			Value: 0,
 		},
 		&cli.StringFlag{
-			Name:     "conf-path",
-			Usage:    "config.yaml path",
-			Value:    "",
-			Required: true,
+			Name:  "conf-path",
+			Usage: "config.yaml path",
+			Value: "",
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -266,10 +262,9 @@ var walletVerify = &cli.Command{
 			Value: 0,
 		},
 		&cli.StringFlag{
-			Name:     "conf-path",
-			Usage:    "config.yaml path",
-			Value:    "",
-			Required: true,
+			Name:  "conf-path",
+			Usage: "config.yaml path",
+			Value: "",
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -337,10 +332,9 @@ var walletBalance = &cli.Command{
 			Value: 0,
 		},
 		&cli.StringFlag{
-			Name:     "conf-path",
-			Usage:    "config.yaml path",
-			Value:    "",
-			Required: true,
+			Name:  "conf-path",
+			Usage: "config.yaml path",
+			Value: "",
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -426,10 +420,9 @@ var walletTransfer = &cli.Command{
 			Value: 0,
 		},
 		&cli.StringFlag{
-			Name:     "conf-path",
-			Usage:    "config.yaml path",
-			Value:    "",
-			Required: true,
+			Name:  "conf-path",
+			Usage: "config.yaml path",
+			Value: "",
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -523,10 +516,9 @@ var walletSendCmd = &cli.Command{
 			Value: 0,
 		},
 		&cli.StringFlag{
-			Name:     "conf-path",
-			Usage:    "config.yaml path",
-			Value:    "",
-			Required: true,
+			Name:  "conf-path",
+			Usage: "config.yaml path",
+			Value: "",
 		},
 	},
 	Before: func(c *cli.Context) error {

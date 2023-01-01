@@ -33,13 +33,22 @@ var (
 )
 
 func InitConfig(confPath string) {
-	log.Infow("load config", "path", confPath)
+	if confPath != "" {
+		log.Infow("load config", "path", confPath)
 
-	confName := strings.Split(filepath.Base(confPath), ".")
+		confName := strings.Split(filepath.Base(confPath), ".")
 
-	viper.SetConfigName(confName[0])
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(filepath.Dir(confPath))
+		viper.SetConfigName(confName[0])
+		viper.SetConfigType("yaml")
+		viper.AddConfigPath(filepath.Dir(confPath))
+	} else {
+		viper.SetConfigName("config")
+		viper.SetConfigType("yaml")
+		viper.AddConfigPath("./conf")
+		viper.AddConfigPath("../conf")
+		viper.AddConfigPath("./")
+		viper.AddConfigPath("../")
+	}
 
 	err := viper.ReadInConfig()
 	if err != nil {

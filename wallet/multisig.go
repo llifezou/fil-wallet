@@ -73,10 +73,9 @@ var multisigCmd = &cli.Command{
 			Value: 0,
 		},
 		&cli.StringFlag{
-			Name:     "conf-path",
-			Usage:    "config.yaml path",
-			Value:    "",
-			Required: true,
+			Name:  "conf-path",
+			Usage: "config.yaml path",
+			Value: "",
 		},
 	},
 	Subcommands: []*cli.Command{
@@ -379,6 +378,7 @@ var msigInspectCmd = &cli.Command{
 						fmt.Fprintf(w, "%d\t%s\t%d\t%s\t%s\t%s(%d)\t%s\n", txid, "pending", len(tx.Approved), target, types.FIL(tx.Value), "new account, unknown method", tx.Method, paramStr)
 					}
 				} else {
+					// todo 反解params
 					method := filcns.NewActorRegistry().Methods[targAct.Code][tx.Method] // TODO: use remote map
 
 					if decParams && tx.Method != 0 {
@@ -2164,7 +2164,7 @@ var msigChangeWorkerProposeCmd = &cli.Command{
 		} else {
 			if newWorkerStr == newAddrStr {
 				fmt.Fprintf(cctx.App.Writer, "Worker key change to %s successfully proposed.\n", na)
-				fmt.Fprintf(cctx.App.Writer, "Call 'confirm-change-worker' at or after height %d to complete.\n", workerChangeEpoch)
+				fmt.Fprintf(cctx.App.Writer, "Call 'confirm-change-worker' at or after height %f to complete.\n", workerChangeEpoch)
 				return fmt.Errorf("change to worker address %s already pending", na)
 			}
 		}
