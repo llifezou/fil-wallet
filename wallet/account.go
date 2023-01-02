@@ -8,6 +8,8 @@ import (
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/filecoin-project/lotus/chain/wallet/key"
+	_ "github.com/filecoin-project/lotus/lib/sigs/bls"
+	_ "github.com/filecoin-project/lotus/lib/sigs/secp"
 	"github.com/llifezou/fil-sdk/sigs"
 	_ "github.com/llifezou/fil-sdk/sigs/bls"
 	_ "github.com/llifezou/fil-sdk/sigs/secp"
