@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"github.com/fatih/color"
@@ -8,6 +9,7 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/builtin"
+	"github.com/filecoin-project/go-state-types/builtin/v9/miner"
 	"github.com/filecoin-project/lotus/chain/actors"
 	"github.com/filecoin-project/lotus/chain/actors/builtin/power"
 	"github.com/filecoin-project/lotus/chain/types"
@@ -21,6 +23,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/xerrors"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -75,6 +78,8 @@ var minerCmd = &cli.Command{
 		actorControl,
 		actorProposeChangeWorker,
 		actorConfirmChangeWorker,
+		actorProposeChangeBeneficiary,
+		actorConfirmChangeBeneficiary,
 	},
 }
 
@@ -835,6 +840,262 @@ var actorConfirmChangeWorker = &cli.Command{
 
 		if workerStr != newAddr.String() {
 			return fmt.Errorf("Confirmed worker address change not reflected on chain: expected '%s', found '%s'", newAddr, workerStr)
+		}
+
+		return nil
+	},
+}
+
+var actorProposeChangeBeneficiary = &cli.Command{
+	Name:      "propose-change-beneficiary",
+	Usage:     "Propose a beneficiary address change",
+	ArgsUsage: "[beneficiaryAddress quota expiration]",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "really-do-it",
+			Usage: "Actually send transaction performing the action",
+			Value: false,
+		},
+		&cli.BoolFlag{
+			Name:  "overwrite-pending-change",
+			Usage: "Overwrite the current beneficiary change proposal",
+			Value: false,
+		},
+		&cli.StringFlag{
+			Name:  "actor",
+			Usage: "specify the address of miner actor",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		if cctx.NArg() != 3 {
+			return fmt.Errorf("must be set: beneficiaryAddress quota expiration")
+		}
+
+		conf := config.Conf()
+		api, closer, err := client.NewLotusAPI(conf.Chain.RpcAddr, conf.Chain.Token)
+		if err != nil {
+			return err
+		}
+		defer closer()
+		ctx := context.Background()
+
+		na, err := address.NewFromString(cctx.Args().Get(0))
+		if err != nil {
+			return xerrors.Errorf("parsing beneficiary address: %w", err)
+		}
+
+		newAddr, err := api.StateLookupID(ctx, na, types.EmptyTSK)
+		if err != nil {
+			return xerrors.Errorf("looking up new beneficiary address: %w", err)
+		}
+
+		quota, err := types.ParseFIL(cctx.Args().Get(1))
+		if err != nil {
+			return xerrors.Errorf("parsing quota: %w", err)
+		}
+
+		expiration, err := strconv.ParseInt(cctx.Args().Get(2), 10, 64)
+		if err != nil {
+			return xerrors.Errorf("parsing expiration: %w", err)
+		}
+
+		act := cctx.String("actor")
+		maddr, err := address.NewFromString(act)
+		if err != nil {
+			return xerrors.Errorf("getting miner address: %w", err)
+		}
+
+		mi, err := api.StateMinerInfo(ctx, maddr, types.EmptyTSK)
+		if err != nil {
+			return xerrors.Errorf("getting miner info: %w", err)
+		}
+
+		if mi.Beneficiary == mi.Owner && newAddr == mi.Owner {
+			return fmt.Errorf("beneficiary %s already set to owner address", mi.Beneficiary)
+		}
+
+		if mi.PendingBeneficiaryTerm != nil {
+			fmt.Println("WARNING: replacing Pending Beneficiary Term of:")
+			fmt.Println("Beneficiary: ", mi.PendingBeneficiaryTerm.NewBeneficiary)
+			fmt.Println("Quota:", mi.PendingBeneficiaryTerm.NewQuota)
+			fmt.Println("Expiration Epoch:", mi.PendingBeneficiaryTerm.NewExpiration)
+
+			if !cctx.Bool("overwrite-pending-change") {
+				return fmt.Errorf("must pass --overwrite-pending-change to replace current pending beneficiary change. Please review CAREFULLY")
+			}
+		}
+
+		if !cctx.Bool("really-do-it") {
+			fmt.Println("Pass --really-do-it to actually execute this action. Review what you're about to approve CAREFULLY please")
+			return nil
+		}
+
+		nk, err := getAccount(cctx)
+		if err != nil {
+			return err
+		}
+
+		params := &miner.ChangeBeneficiaryParams{
+			NewBeneficiary: newAddr,
+			NewQuota:       abi.TokenAmount(quota),
+			NewExpiration:  abi.ChainEpoch(expiration),
+		}
+
+		sp, err := actors.SerializeParams(params)
+		if err != nil {
+			return xerrors.Errorf("serializing params: %w", err)
+		}
+
+		msgCid, err := send(nk, &types.Message{
+			From:   mi.Owner,
+			To:     maddr,
+			Method: builtin.MethodsMiner.ChangeBeneficiary,
+			Value:  big.Zero(),
+			Params: sp,
+		})
+		if err != nil {
+			return xerrors.Errorf("mpool push: %w", err)
+		}
+
+		fmt.Println("Propose Message CID:", msgCid)
+
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
+		err = waitMsg(msgCid.String())
+		if err != nil {
+			return err
+		}
+
+		updatedMinerInfo, err := api.StateMinerInfo(ctx, maddr, types.EmptyTSK)
+		if err != nil {
+			return xerrors.Errorf("getting miner info: %w", err)
+		}
+
+		if updatedMinerInfo.PendingBeneficiaryTerm == nil && updatedMinerInfo.Beneficiary == newAddr {
+			fmt.Println("Beneficiary address successfully changed")
+		} else {
+			fmt.Println("Beneficiary address change awaiting additional confirmations")
+		}
+
+		return nil
+	},
+}
+
+var actorConfirmChangeBeneficiary = &cli.Command{
+	Name:      "confirm-change-beneficiary",
+	Usage:     "Confirm a beneficiary address change",
+	ArgsUsage: "[minerAddress]",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "really-do-it",
+			Usage: "Actually send transaction performing the action",
+			Value: false,
+		},
+		&cli.BoolFlag{
+			Name:  "existing-beneficiary",
+			Usage: "send confirmation from the existing beneficiary address",
+		},
+		&cli.BoolFlag{
+			Name:  "new-beneficiary",
+			Usage: "send confirmation from the new beneficiary address",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		if cctx.NArg() != 1 {
+			return fmt.Errorf("must be set: minerAddress")
+		}
+
+		conf := config.Conf()
+		api, closer, err := client.NewLotusAPI(conf.Chain.RpcAddr, conf.Chain.Token)
+		if err != nil {
+			return err
+		}
+		defer closer()
+		ctx := context.Background()
+
+		maddr, err := address.NewFromString(cctx.Args().First())
+		if err != nil {
+			return xerrors.Errorf("parsing beneficiary address: %w", err)
+		}
+
+		mi, err := api.StateMinerInfo(ctx, maddr, types.EmptyTSK)
+		if err != nil {
+			return xerrors.Errorf("getting miner info: %w", err)
+		}
+
+		if mi.PendingBeneficiaryTerm == nil {
+			return fmt.Errorf("no pending beneficiary term found for miner %s", maddr)
+		}
+
+		if (cctx.IsSet("existing-beneficiary") && cctx.IsSet("new-beneficiary")) || (!cctx.IsSet("existing-beneficiary") && !cctx.IsSet("new-beneficiary")) {
+			return fmt.Errorf("must pass exactly one of --existing-beneficiary or --new-beneficiary")
+		}
+
+		var fromAddr address.Address
+		if cctx.IsSet("existing-beneficiary") {
+			if mi.PendingBeneficiaryTerm.ApprovedByBeneficiary {
+				return fmt.Errorf("beneficiary change already approved by current beneficiary")
+			}
+			fromAddr = mi.Beneficiary
+		} else {
+			if mi.PendingBeneficiaryTerm.ApprovedByNominee {
+				return fmt.Errorf("beneficiary change already approved by new beneficiary")
+			}
+			fromAddr = mi.PendingBeneficiaryTerm.NewBeneficiary
+		}
+
+		fmt.Println("Confirming Pending Beneficiary Term of:")
+		fmt.Println("Beneficiary: ", mi.PendingBeneficiaryTerm.NewBeneficiary)
+		fmt.Println("Quota:", mi.PendingBeneficiaryTerm.NewQuota)
+		fmt.Println("Expiration Epoch:", mi.PendingBeneficiaryTerm.NewExpiration)
+
+		if !cctx.Bool("really-do-it") {
+			fmt.Println("Pass --really-do-it to actually execute this action. Review what you're about to approve CAREFULLY please")
+			return nil
+		}
+
+		nk, err := getAccount(cctx)
+		if err != nil {
+			return err
+		}
+
+		params := &miner.ChangeBeneficiaryParams{
+			NewBeneficiary: mi.PendingBeneficiaryTerm.NewBeneficiary,
+			NewQuota:       mi.PendingBeneficiaryTerm.NewQuota,
+			NewExpiration:  mi.PendingBeneficiaryTerm.NewExpiration,
+		}
+
+		sp, err := actors.SerializeParams(params)
+		if err != nil {
+			return xerrors.Errorf("serializing params: %w", err)
+		}
+
+		msgCid, err := send(nk, &types.Message{
+			From:   fromAddr,
+			To:     maddr,
+			Method: builtin.MethodsMiner.ChangeBeneficiary,
+			Value:  big.Zero(),
+			Params: sp,
+		})
+		if err != nil {
+			return xerrors.Errorf("mpool push: %w", err)
+		}
+
+		fmt.Println("Confirm Message CID:", msgCid)
+
+		err = waitMsg(msgCid.String())
+		if err != nil {
+			return err
+		}
+
+		updatedMinerInfo, err := api.StateMinerInfo(ctx, maddr, types.EmptyTSK)
+		if err != nil {
+			return err
+		}
+
+		if updatedMinerInfo.PendingBeneficiaryTerm == nil && updatedMinerInfo.Beneficiary == mi.PendingBeneficiaryTerm.NewBeneficiary {
+			fmt.Println("Beneficiary address successfully changed")
+		} else {
+			fmt.Println("Beneficiary address change awaiting additional confirmations")
 		}
 
 		return nil

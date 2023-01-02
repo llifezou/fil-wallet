@@ -11,6 +11,7 @@ import (
 	actorstypes "github.com/filecoin-project/go-state-types/actors"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/builtin"
+	"github.com/filecoin-project/go-state-types/builtin/v9/miner"
 	"github.com/filecoin-project/go-state-types/network"
 	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/blockstore"
@@ -110,6 +111,8 @@ var multisigCmd = &cli.Command{
 		msigConfirmChangeWorkerApproveCmd,
 		msigSetControlProposeCmd,
 		msigSetControlApproveCmd,
+		msigProposeChangeBeneficiary,
+		msigConfirmChangeBeneficiary,
 	},
 	Before: func(c *cli.Context) error {
 		config.InitConfig(c.String("conf-path"))
@@ -2759,6 +2762,216 @@ var msigSetControlApproveCmd = &cli.Command{
 		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
 
 		return waitMsg(msgCid.String())
+	},
+}
+
+var msigProposeChangeBeneficiary = &cli.Command{
+	Name:      "propose-change-beneficiary",
+	Usage:     "Propose a beneficiary address change",
+	ArgsUsage: "[beneficiaryAddress quota expiration]",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "really-do-it",
+			Usage: "Actually send transaction performing the action",
+			Value: false,
+		},
+		&cli.BoolFlag{
+			Name:  "overwrite-pending-change",
+			Usage: "Overwrite the current beneficiary change proposal",
+			Value: false,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		if cctx.NArg() != 3 {
+			return fmt.Errorf("must be set: beneficiaryAddress quota expiration")
+		}
+
+		conf := config.Conf()
+		api, closer, err := client.NewLotusAPI(conf.Chain.RpcAddr, conf.Chain.Token)
+		if err != nil {
+			return err
+		}
+		defer closer()
+		ctx := context.Background()
+
+		na, err := address.NewFromString(cctx.Args().Get(0))
+		if err != nil {
+			return xerrors.Errorf("parsing beneficiary address: %w", err)
+		}
+
+		newAddr, err := api.StateLookupID(ctx, na, types.EmptyTSK)
+		if err != nil {
+			return xerrors.Errorf("looking up new beneficiary address: %w", err)
+		}
+
+		quota, err := types.ParseFIL(cctx.Args().Get(1))
+		if err != nil {
+			return xerrors.Errorf("parsing quota: %w", err)
+		}
+
+		expiration, err := types.BigFromString(cctx.Args().Get(2))
+		if err != nil {
+			return xerrors.Errorf("parsing expiration: %w", err)
+		}
+
+		multisigAddr, sender, minerAddr, err := getInputs(cctx)
+		if err != nil {
+			return err
+		}
+
+		mi, err := api.StateMinerInfo(ctx, minerAddr, types.EmptyTSK)
+		if err != nil {
+			return err
+		}
+
+		if mi.PendingBeneficiaryTerm != nil {
+			fmt.Println("WARNING: replacing Pending Beneficiary Term of:")
+			fmt.Println("Beneficiary: ", mi.PendingBeneficiaryTerm.NewBeneficiary)
+			fmt.Println("Quota:", mi.PendingBeneficiaryTerm.NewQuota)
+			fmt.Println("Expiration Epoch:", mi.PendingBeneficiaryTerm.NewExpiration)
+
+			if !cctx.Bool("overwrite-pending-change") {
+				return fmt.Errorf("must pass --overwrite-pending-change to replace current pending beneficiary change. Please review CAREFULLY")
+			}
+		}
+
+		if !cctx.Bool("really-do-it") {
+			fmt.Println("Pass --really-do-it to actually execute this action. Review what you're about to approve CAREFULLY please")
+			return nil
+		}
+
+		params := &miner.ChangeBeneficiaryParams{
+			NewBeneficiary: newAddr,
+			NewQuota:       abi.TokenAmount(quota),
+			NewExpiration:  abi.ChainEpoch(expiration.Int64()),
+		}
+
+		sp, err := actors.SerializeParams(params)
+		if err != nil {
+			return xerrors.Errorf("serializing params: %w", err)
+		}
+
+		msiger := NewMsiger()
+		proto, err := msiger.MsigPropose(multisigAddr, minerAddr, big.Zero(), sender, uint64(builtin.MethodsMiner.ChangeBeneficiary), sp)
+		if err != nil {
+			return xerrors.Errorf("proposing message: %w", err)
+		}
+
+		nk, err := getAccount(cctx)
+		if err != nil {
+			return err
+		}
+
+		msgCid, err := send(nk, proto)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		fmt.Println("Propose Message CID: ", msgCid)
+
+		fmt.Fprintln(cctx.App.Writer, "propose beneficiary change message CID:", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
+
+		return waitProposalMsg(msgCid.String())
+	},
+}
+
+var msigConfirmChangeBeneficiary = &cli.Command{
+	Name:      "confirm-change-beneficiary",
+	Usage:     "Confirm a beneficiary address change",
+	ArgsUsage: "[minerAddress]",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "really-do-it",
+			Usage: "Actually send transaction performing the action",
+			Value: false,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		if cctx.NArg() != 1 {
+			return fmt.Errorf("must be set: minerAddress")
+		}
+
+		conf := config.Conf()
+		api, closer, err := client.NewLotusAPI(conf.Chain.RpcAddr, conf.Chain.Token)
+		if err != nil {
+			return err
+		}
+		defer closer()
+		ctx := context.Background()
+
+		multisigAddr, sender, minerAddr, err := getInputs(cctx)
+		if err != nil {
+			return err
+		}
+
+		mi, err := api.StateMinerInfo(ctx, minerAddr, types.EmptyTSK)
+		if err != nil {
+			return err
+		}
+
+		if mi.PendingBeneficiaryTerm == nil {
+			return fmt.Errorf("no pending beneficiary term found for miner %s", minerAddr)
+		}
+
+		fmt.Println("Confirming Pending Beneficiary Term of:")
+		fmt.Println("Beneficiary: ", mi.PendingBeneficiaryTerm.NewBeneficiary)
+		fmt.Println("Quota:", mi.PendingBeneficiaryTerm.NewQuota)
+		fmt.Println("Expiration Epoch:", mi.PendingBeneficiaryTerm.NewExpiration)
+
+		if !cctx.Bool("really-do-it") {
+			fmt.Println("Pass --really-do-it to actually execute this action. Review what you're about to approve CAREFULLY please")
+			return nil
+		}
+
+		params := &miner.ChangeBeneficiaryParams{
+			NewBeneficiary: mi.PendingBeneficiaryTerm.NewBeneficiary,
+			NewQuota:       mi.PendingBeneficiaryTerm.NewQuota,
+			NewExpiration:  mi.PendingBeneficiaryTerm.NewExpiration,
+		}
+
+		sp, err := actors.SerializeParams(params)
+		if err != nil {
+			return xerrors.Errorf("serializing params: %w", err)
+		}
+
+		msiger := NewMsiger()
+		proto, err := msiger.MsigPropose(multisigAddr, minerAddr, big.Zero(), sender, uint64(builtin.MethodsMiner.ChangeBeneficiary), sp)
+		if err != nil {
+			return xerrors.Errorf("proposing message: %w", err)
+		}
+
+		nk, err := getAccount(cctx)
+		if err != nil {
+			return err
+		}
+
+		msgCid, err := send(nk, proto)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		fmt.Println("Confirm Message CID:", msgCid)
+
+		err = waitMsg(msgCid.String())
+		if err != nil {
+			log.Error(err)
+		}
+
+		updatedMinerInfo, err := api.StateMinerInfo(ctx, minerAddr, types.EmptyTSK)
+		if err != nil {
+			return err
+		}
+
+		if updatedMinerInfo.PendingBeneficiaryTerm == nil && updatedMinerInfo.Beneficiary == mi.PendingBeneficiaryTerm.NewBeneficiary {
+			fmt.Println("Beneficiary address successfully changed")
+		} else {
+			fmt.Println("Beneficiary address change awaiting additional confirmations")
+		}
+
+		return nil
 	},
 }
 
