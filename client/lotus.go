@@ -200,13 +200,27 @@ func LotusStateMinerInfo(rpcAddr, token string, minerId string) (string, string,
 		return "", "", "", 0, []interface{}{}, xerrors.Errorf("error: %s", r.Error.(map[string]interface{})["message"])
 	}
 
+	var owner, worker, newWorker string
+	var workerChangeEpoch float64
+	var controlAddresses []interface{}
 	if r.Result != nil {
 		infoMap := r.Result.(map[string]interface{})
-		owner := infoMap["Owner"].(string)
-		worker := infoMap["Worker"].(string)
-		newWorker := infoMap["NewWorker"].(string)
-		workerChangeEpoch := infoMap["WorkerChangeEpoch"].(float64)
-		controlAddresses := infoMap["ControlAddresses"].([]interface{})
+
+		if value, ok := infoMap["Owner"].(string); ok {
+			owner = value
+		}
+		if value, ok := infoMap["Worker"].(string); ok {
+			worker = value
+		}
+		if value, ok := infoMap["NewWorker"].(string); ok {
+			newWorker = value
+		}
+		if value, ok := infoMap["WorkerChangeEpoch"].(float64); ok {
+			workerChangeEpoch = value
+		}
+		if value, ok := infoMap["ControlAddresses"].([]interface{}); ok {
+			controlAddresses = value
+		}
 		return owner, worker, newWorker, workerChangeEpoch, controlAddresses, nil
 	}
 

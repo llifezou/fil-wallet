@@ -2,7 +2,12 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/filecoin-project/go-jsonrpc"
+	"github.com/filecoin-project/lotus/api"
+	lotusClient "github.com/filecoin-project/lotus/api/client"
 	"golang.org/x/xerrors"
 	"io/ioutil"
 	"math/rand"
@@ -91,4 +96,17 @@ func (c *client) Call() ([]byte, error) {
 	}
 
 	return body, nil
+}
+
+func NewLotusAPI(rpcAddr, token string) (api.FullNode, jsonrpc.ClientCloser, error) {
+	requestHeader := http.Header{}
+	requestHeader.Add("Content-Type", "application/json")
+
+	if token != "" {
+		tokenHeader := fmt.Sprintf("Bearer %s", token)
+		requestHeader.Set("Authorization", tokenHeader)
+	}
+
+	lotusAPI, closer, err := lotusClient.NewFullNodeRPCV1(context.Background(), rpcAddr, requestHeader)
+	return lotusAPI, closer, err
 }

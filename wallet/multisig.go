@@ -2,27 +2,39 @@ package wallet
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
+	actorstypes "github.com/filecoin-project/go-state-types/actors"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/builtin"
+	"github.com/filecoin-project/go-state-types/builtin/v9/miner"
 	"github.com/filecoin-project/go-state-types/network"
 	"github.com/filecoin-project/lotus/api"
+	"github.com/filecoin-project/lotus/blockstore"
 	"github.com/filecoin-project/lotus/chain/actors"
+	"github.com/filecoin-project/lotus/chain/actors/adt"
 	bt2 "github.com/filecoin-project/lotus/chain/actors/builtin"
 	"github.com/filecoin-project/lotus/chain/actors/builtin/multisig"
+	"github.com/filecoin-project/lotus/chain/consensus/filcns"
 	"github.com/filecoin-project/lotus/chain/types"
 	init2 "github.com/filecoin-project/specs-actors/v2/actors/builtin/init"
 	msig2 "github.com/filecoin-project/specs-actors/v2/actors/builtin/multisig"
 	miner5 "github.com/filecoin-project/specs-actors/v5/actors/builtin/miner"
 	"github.com/ipfs/go-cid"
+	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/llifezou/fil-wallet/client"
 	"github.com/llifezou/fil-wallet/config"
 	"github.com/urfave/cli/v2"
+	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/xerrors"
+	"reflect"
+	"sort"
 	"strconv"
+	"text/tabwriter"
 	"time"
 )
 
@@ -62,9 +74,15 @@ var multisigCmd = &cli.Command{
 			Usage: "wallet index",
 			Value: 0,
 		},
+		&cli.StringFlag{
+			Name:  "conf-path",
+			Usage: "config.yaml path",
+			Value: "",
+		},
 	},
 	Subcommands: []*cli.Command{
 		msigCreateCmd,
+		msigInspectCmd,
 		msigProposeCmd,
 		msigRemoveProposeCmd,
 		msigApproveCmd,
@@ -93,6 +111,12 @@ var multisigCmd = &cli.Command{
 		msigConfirmChangeWorkerApproveCmd,
 		msigSetControlProposeCmd,
 		msigSetControlApproveCmd,
+		msigProposeChangeBeneficiary,
+		msigConfirmChangeBeneficiary,
+	},
+	Before: func(c *cli.Context) error {
+		config.InitConfig(c.String("conf-path"))
+		return nil
 	},
 }
 
@@ -212,6 +236,177 @@ var msigCreateCmd = &cli.Command{
 			return err
 		}
 		fmt.Fprintln(cctx.App.Writer, "Created new multisig: ", execreturn.IDAddress, execreturn.RobustAddress)
+
+		return nil
+	},
+}
+
+var msigInspectCmd = &cli.Command{
+	Name:      "inspect",
+	Usage:     "Inspect a multisig wallet",
+	ArgsUsage: "[address]",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "vesting",
+			Usage: "Include vesting details",
+		},
+		&cli.BoolFlag{
+			Name:  "decode-params",
+			Usage: "Decode parameters of transaction proposals",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		if !cctx.Args().Present() {
+			return fmt.Errorf("must specify address of multisig to inspect")
+		}
+
+		conf := config.Conf()
+		api, closer, err := client.NewLotusAPI(conf.Chain.RpcAddr, conf.Chain.Token)
+		if err != nil {
+			return err
+		}
+		defer closer()
+		ctx := context.Background()
+
+		store := adt.WrapStore(ctx, cbor.NewCborStore(blockstore.NewAPIBlockstore(api)))
+
+		maddr, err := address.NewFromString(cctx.Args().First())
+		if err != nil {
+			return err
+		}
+
+		head, err := api.ChainHead(ctx)
+		if err != nil {
+			return err
+		}
+
+		act, err := api.StateGetActor(ctx, maddr, head.Key())
+		if err != nil {
+			return err
+		}
+
+		ownId, err := api.StateLookupID(ctx, maddr, types.EmptyTSK)
+		if err != nil {
+			return err
+		}
+
+		mstate, err := multisig.Load(store, act)
+		if err != nil {
+			return err
+		}
+		locked, err := mstate.LockedBalance(head.Height())
+		if err != nil {
+			return err
+		}
+
+		fmt.Fprintf(cctx.App.Writer, "Balance: %s\n", types.FIL(act.Balance))
+		fmt.Fprintf(cctx.App.Writer, "Spendable: %s\n", types.FIL(types.BigSub(act.Balance, locked)))
+
+		if cctx.Bool("vesting") {
+			ib, err := mstate.InitialBalance()
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cctx.App.Writer, "InitialBalance: %s\n", types.FIL(ib))
+			se, err := mstate.StartEpoch()
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cctx.App.Writer, "StartEpoch: %d\n", se)
+			ud, err := mstate.UnlockDuration()
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cctx.App.Writer, "UnlockDuration: %d\n", ud)
+		}
+
+		signers, err := mstate.Signers()
+		if err != nil {
+			return err
+		}
+		threshold, err := mstate.Threshold()
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(cctx.App.Writer, "Threshold: %d / %d\n", threshold, len(signers))
+		fmt.Fprintln(cctx.App.Writer, "Signers:")
+
+		signerTable := tabwriter.NewWriter(cctx.App.Writer, 8, 4, 2, ' ', 0)
+		fmt.Fprintf(signerTable, "ID\tAddress\n")
+		for _, s := range signers {
+			signerActor, err := api.StateAccountKey(ctx, s, types.EmptyTSK)
+			if err != nil {
+				fmt.Fprintf(signerTable, "%s\t%s\n", s, "N/A")
+			} else {
+				fmt.Fprintf(signerTable, "%s\t%s\n", s, signerActor)
+			}
+		}
+		if err := signerTable.Flush(); err != nil {
+			return xerrors.Errorf("flushing output: %+v", err)
+		}
+
+		pending := make(map[int64]multisig.Transaction)
+		if err := mstate.ForEachPendingTxn(func(id int64, txn multisig.Transaction) error {
+			pending[id] = txn
+			return nil
+		}); err != nil {
+			return xerrors.Errorf("reading pending transactions: %w", err)
+		}
+
+		decParams := cctx.Bool("decode-params")
+		fmt.Fprintln(cctx.App.Writer, "Transactions: ", len(pending))
+		if len(pending) > 0 {
+			var txids []int64
+			for txid := range pending {
+				txids = append(txids, txid)
+			}
+			sort.Slice(txids, func(i, j int) bool {
+				return txids[i] < txids[j]
+			})
+
+			w := tabwriter.NewWriter(cctx.App.Writer, 8, 4, 2, ' ', 0)
+			fmt.Fprintf(w, "ID\tState\tApprovals\tTo\tValue\tMethod\tParams\n")
+			for _, txid := range txids {
+				tx := pending[txid]
+				target := tx.To.String()
+				if tx.To == ownId {
+					target += " (self)"
+				}
+				targAct, err := api.StateGetActor(ctx, tx.To, types.EmptyTSK)
+				paramStr := fmt.Sprintf("%x", tx.Params)
+
+				if err != nil {
+					if tx.Method == 0 {
+						fmt.Fprintf(w, "%d\t%s\t%d\t%s\t%s\t%s(%d)\t%s\n", txid, "pending", len(tx.Approved), target, types.FIL(tx.Value), "Send", tx.Method, paramStr)
+					} else {
+						fmt.Fprintf(w, "%d\t%s\t%d\t%s\t%s\t%s(%d)\t%s\n", txid, "pending", len(tx.Approved), target, types.FIL(tx.Value), "new account, unknown method", tx.Method, paramStr)
+					}
+				} else {
+					// todo 反解params
+					method := filcns.NewActorRegistry().Methods[targAct.Code][tx.Method] // TODO: use remote map
+
+					if decParams && tx.Method != 0 {
+						ptyp := reflect.New(method.Params.Elem()).Interface().(cbg.CBORUnmarshaler)
+						if err := ptyp.UnmarshalCBOR(bytes.NewReader(tx.Params)); err != nil {
+							return xerrors.Errorf("failed to decode parameters of transaction %d: %w", txid, err)
+						}
+
+						b, err := json.Marshal(ptyp)
+						if err != nil {
+							return xerrors.Errorf("could not json marshal parameter type: %w", err)
+						}
+
+						paramStr = string(b)
+					}
+
+					fmt.Fprintf(w, "%d\t%s\t%d\t%s\t%s\t%s(%d)\t%s\n", txid, "pending", len(tx.Approved), target, types.FIL(tx.Value), method.Name, tx.Method, paramStr)
+				}
+			}
+			if err := w.Flush(); err != nil {
+				return xerrors.Errorf("flushing output: %+v", err)
+			}
+
+		}
 
 		return nil
 	},
@@ -1973,7 +2168,7 @@ var msigChangeWorkerProposeCmd = &cli.Command{
 		} else {
 			if newWorkerStr == newAddrStr {
 				fmt.Fprintf(cctx.App.Writer, "Worker key change to %s successfully proposed.\n", na)
-				fmt.Fprintf(cctx.App.Writer, "Call 'confirm-change-worker' at or after height %d to complete.\n", workerChangeEpoch)
+				fmt.Fprintf(cctx.App.Writer, "Call 'confirm-change-worker' at or after height %f to complete.\n", workerChangeEpoch)
 				return fmt.Errorf("change to worker address %s already pending", na)
 			}
 		}
@@ -2570,6 +2765,216 @@ var msigSetControlApproveCmd = &cli.Command{
 	},
 }
 
+var msigProposeChangeBeneficiary = &cli.Command{
+	Name:      "propose-change-beneficiary",
+	Usage:     "Propose a beneficiary address change",
+	ArgsUsage: "[beneficiaryAddress quota expiration]",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "really-do-it",
+			Usage: "Actually send transaction performing the action",
+			Value: false,
+		},
+		&cli.BoolFlag{
+			Name:  "overwrite-pending-change",
+			Usage: "Overwrite the current beneficiary change proposal",
+			Value: false,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		if cctx.NArg() != 3 {
+			return fmt.Errorf("must be set: beneficiaryAddress quota expiration")
+		}
+
+		conf := config.Conf()
+		api, closer, err := client.NewLotusAPI(conf.Chain.RpcAddr, conf.Chain.Token)
+		if err != nil {
+			return err
+		}
+		defer closer()
+		ctx := context.Background()
+
+		na, err := address.NewFromString(cctx.Args().Get(0))
+		if err != nil {
+			return xerrors.Errorf("parsing beneficiary address: %w", err)
+		}
+
+		newAddr, err := api.StateLookupID(ctx, na, types.EmptyTSK)
+		if err != nil {
+			return xerrors.Errorf("looking up new beneficiary address: %w", err)
+		}
+
+		quota, err := types.ParseFIL(cctx.Args().Get(1))
+		if err != nil {
+			return xerrors.Errorf("parsing quota: %w", err)
+		}
+
+		expiration, err := types.BigFromString(cctx.Args().Get(2))
+		if err != nil {
+			return xerrors.Errorf("parsing expiration: %w", err)
+		}
+
+		multisigAddr, sender, minerAddr, err := getInputs(cctx)
+		if err != nil {
+			return err
+		}
+
+		mi, err := api.StateMinerInfo(ctx, minerAddr, types.EmptyTSK)
+		if err != nil {
+			return err
+		}
+
+		if mi.PendingBeneficiaryTerm != nil {
+			fmt.Println("WARNING: replacing Pending Beneficiary Term of:")
+			fmt.Println("Beneficiary: ", mi.PendingBeneficiaryTerm.NewBeneficiary)
+			fmt.Println("Quota:", mi.PendingBeneficiaryTerm.NewQuota)
+			fmt.Println("Expiration Epoch:", mi.PendingBeneficiaryTerm.NewExpiration)
+
+			if !cctx.Bool("overwrite-pending-change") {
+				return fmt.Errorf("must pass --overwrite-pending-change to replace current pending beneficiary change. Please review CAREFULLY")
+			}
+		}
+
+		if !cctx.Bool("really-do-it") {
+			fmt.Println("Pass --really-do-it to actually execute this action. Review what you're about to approve CAREFULLY please")
+			return nil
+		}
+
+		params := &miner.ChangeBeneficiaryParams{
+			NewBeneficiary: newAddr,
+			NewQuota:       abi.TokenAmount(quota),
+			NewExpiration:  abi.ChainEpoch(expiration.Int64()),
+		}
+
+		sp, err := actors.SerializeParams(params)
+		if err != nil {
+			return xerrors.Errorf("serializing params: %w", err)
+		}
+
+		msiger := NewMsiger()
+		proto, err := msiger.MsigPropose(multisigAddr, minerAddr, big.Zero(), sender, uint64(builtin.MethodsMiner.ChangeBeneficiary), sp)
+		if err != nil {
+			return xerrors.Errorf("proposing message: %w", err)
+		}
+
+		nk, err := getAccount(cctx)
+		if err != nil {
+			return err
+		}
+
+		msgCid, err := send(nk, proto)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		fmt.Println("Propose Message CID: ", msgCid)
+
+		fmt.Fprintln(cctx.App.Writer, "propose beneficiary change message CID:", msgCid)
+		fmt.Println(fmt.Sprintf("%s%s", config.Conf().Chain.Explorer, msgCid.String()))
+
+		return waitProposalMsg(msgCid.String())
+	},
+}
+
+var msigConfirmChangeBeneficiary = &cli.Command{
+	Name:      "confirm-change-beneficiary",
+	Usage:     "Confirm a beneficiary address change",
+	ArgsUsage: "[minerAddress]",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "really-do-it",
+			Usage: "Actually send transaction performing the action",
+			Value: false,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		if cctx.NArg() != 1 {
+			return fmt.Errorf("must be set: minerAddress")
+		}
+
+		conf := config.Conf()
+		api, closer, err := client.NewLotusAPI(conf.Chain.RpcAddr, conf.Chain.Token)
+		if err != nil {
+			return err
+		}
+		defer closer()
+		ctx := context.Background()
+
+		multisigAddr, sender, minerAddr, err := getInputs(cctx)
+		if err != nil {
+			return err
+		}
+
+		mi, err := api.StateMinerInfo(ctx, minerAddr, types.EmptyTSK)
+		if err != nil {
+			return err
+		}
+
+		if mi.PendingBeneficiaryTerm == nil {
+			return fmt.Errorf("no pending beneficiary term found for miner %s", minerAddr)
+		}
+
+		fmt.Println("Confirming Pending Beneficiary Term of:")
+		fmt.Println("Beneficiary: ", mi.PendingBeneficiaryTerm.NewBeneficiary)
+		fmt.Println("Quota:", mi.PendingBeneficiaryTerm.NewQuota)
+		fmt.Println("Expiration Epoch:", mi.PendingBeneficiaryTerm.NewExpiration)
+
+		if !cctx.Bool("really-do-it") {
+			fmt.Println("Pass --really-do-it to actually execute this action. Review what you're about to approve CAREFULLY please")
+			return nil
+		}
+
+		params := &miner.ChangeBeneficiaryParams{
+			NewBeneficiary: mi.PendingBeneficiaryTerm.NewBeneficiary,
+			NewQuota:       mi.PendingBeneficiaryTerm.NewQuota,
+			NewExpiration:  mi.PendingBeneficiaryTerm.NewExpiration,
+		}
+
+		sp, err := actors.SerializeParams(params)
+		if err != nil {
+			return xerrors.Errorf("serializing params: %w", err)
+		}
+
+		msiger := NewMsiger()
+		proto, err := msiger.MsigPropose(multisigAddr, minerAddr, big.Zero(), sender, uint64(builtin.MethodsMiner.ChangeBeneficiary), sp)
+		if err != nil {
+			return xerrors.Errorf("proposing message: %w", err)
+		}
+
+		nk, err := getAccount(cctx)
+		if err != nil {
+			return err
+		}
+
+		msgCid, err := send(nk, proto)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		fmt.Println("Confirm Message CID:", msgCid)
+
+		err = waitMsg(msgCid.String())
+		if err != nil {
+			log.Error(err)
+		}
+
+		updatedMinerInfo, err := api.StateMinerInfo(ctx, minerAddr, types.EmptyTSK)
+		if err != nil {
+			return err
+		}
+
+		if updatedMinerInfo.PendingBeneficiaryTerm == nil && updatedMinerInfo.Beneficiary == mi.PendingBeneficiaryTerm.NewBeneficiary {
+			fmt.Println("Beneficiary address successfully changed")
+		} else {
+			fmt.Println("Beneficiary address change awaiting additional confirmations")
+		}
+
+		return nil
+	},
+}
+
 func getInputs(cctx *cli.Context) (address.Address, address.Address, address.Address, error) {
 	multisigAddr, err := address.NewFromString(cctx.String("multisig"))
 	if err != nil {
@@ -2672,7 +3077,7 @@ func NewMsiger() *msig {
 }
 
 func (m *msig) messageBuilder(from address.Address) (multisig.MessageBuilder, error) {
-	av, err := actors.VersionForNetwork(network.Version16)
+	av, err := actorstypes.VersionForNetwork(network.Version17)
 	if err != nil {
 		return nil, err
 	}

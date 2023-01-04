@@ -37,7 +37,7 @@
 #### use
 
 ```
-./fil-wallet wallet -h           
+./fil-wallet wallet -h         
 NAME:
    fil-wallet wallet - fil wallet
 
@@ -60,6 +60,7 @@ OPTIONS:
    --help, -h  show help (default: false)
 
 ```
+
 ```
 ./fil-wallet wallet miner -h
 NAME:
@@ -69,12 +70,15 @@ USAGE:
    fil-wallet wallet miner command [command options] [arguments...]
 
 COMMANDS:
-   withdraw               withdraw available balance
-   set-owner              Set owner address (this command should be invoked twice, first with the old owner as the senderAddress, and then with the new owner)
-   control                Manage control addresses
-   propose-change-worker  Propose a worker address change
-   confirm-change-worker  Confirm a worker address change
-   help, h                Shows a list of commands or help for one command
+   new-miner                   new miner, test test test use
+   withdraw                    withdraw available balance
+   set-owner                   Set owner address (this command should be invoked twice, first with the old owner as the senderAddress, and then with the new owner)
+   control                     Manage control addresses
+   propose-change-worker       Propose a worker address change
+   confirm-change-worker       Confirm a worker address change
+   propose-change-beneficiary  Propose a beneficiary address change
+   confirm-change-beneficiary  Confirm a beneficiary address change
+   help, h                     Shows a list of commands or help for one command
 
 OPTIONS:
    --gas-premium value  specify gas price to use in AttoFIL (default: "0")
@@ -83,11 +87,14 @@ OPTIONS:
    --nonce value        specify the nonce to use (default: 0)
    --type value         wallet type, ps: secp256k1, bls (default: "secp256k1")
    --index value        wallet index (default: 0)
+   --conf-path value    config.yaml path
    --help, -h           show help (default: false)
+```
 
 ```
-```
- ./fil-wallet wallet msig -h 
+ ./fil-wallet wallet msig -h                                               
+
+
 NAME:
    fil-wallet wallet msig - Interact with a multisig wallet
 
@@ -96,6 +103,7 @@ USAGE:
 
 COMMANDS:
    create                         Create a new multisig wallet
+   inspect                        Inspect a multisig wallet
    propose                        Propose a multisig transaction
    remove-propose                 Propose to remove a signer
    approve                        Approve a multisig message
@@ -124,6 +132,8 @@ COMMANDS:
    confirm-change-worker-approve  Confirm an worker address change
    set-control-propose            set control address(-es) propose
    set-control-approve            set control address(-es) approve
+   propose-change-beneficiary     Propose a beneficiary address change
+   confirm-change-beneficiary     Confirm a beneficiary address change
    help, h                        Shows a list of commands or help for one command
 
 OPTIONS:
@@ -133,9 +143,8 @@ OPTIONS:
    --nonce value        specify the nonce to use (default: 0)
    --type value         wallet type, ps: secp256k1, bls (default: "secp256k1")
    --index value        wallet index (default: 0)
+   --conf-path value    config.yaml path
    --help, -h           show help (default: false)
-   
-
 ```
 
 - build and edit config.yaml
@@ -149,7 +158,7 @@ OPTIONS:
   ./fil-wallet wallet mnemonic
   一定保存好助记词，丢失助记词将导致所有财产损失！
   Be sure to save mnemonic. Losing mnemonic will cause all property damage!
-
+  
   easily ... ... ... script
   ```
 - Generate a wallet
@@ -166,7 +175,7 @@ OPTIONS:
 
   ```shell
   ./fil-wallet wallet transfer --from f1xxxx1 --index 1 --gas-premium 11199999 --gas-feecap 11199999 --gas-limit 700000 --nonce 1 --to f1xxxx2 --amount 1
-
+  
   ```
 - balance inquiry
 

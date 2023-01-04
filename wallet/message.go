@@ -3,7 +3,7 @@ package wallet
 import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/lotus/chain/types"
-	"github.com/filecoin-project/lotus/chain/wallet"
+	"github.com/filecoin-project/lotus/chain/wallet/key"
 	"github.com/llifezou/fil-sdk/sigs"
 	"github.com/llifezou/fil-wallet/client"
 	"github.com/llifezou/fil-wallet/config"
@@ -95,13 +95,13 @@ func estimateMessageGasAndNonce(msg *types.Message) (*types.Message, error) {
 	return msg, nil
 }
 
-func signMessage(account *wallet.Key, msg *types.Message) (*types.SignedMessage, error) {
+func signMessage(account *key.Key, msg *types.Message) (*types.SignedMessage, error) {
 	mb, err := msg.ToStorageBlock()
 	if err != nil {
 		return nil, xerrors.Errorf("serializing message: %w", err)
 	}
 
-	sig, err := sigs.Sign(wallet.ActSigType(account.Type), account.PrivateKey, mb.Cid().Bytes())
+	sig, err := sigs.Sign(key.ActSigType(account.Type), account.PrivateKey, mb.Cid().Bytes())
 	if err != nil {
 		return nil, xerrors.Errorf("failed to sign message: %w", err)
 	}

@@ -4,6 +4,8 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/spf13/viper"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 type Config struct {
@@ -30,13 +32,24 @@ var (
 	log  = logging.Logger("config")
 )
 
-func init() {
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("./conf")
-	viper.AddConfigPath("../conf")
-	viper.AddConfigPath("./")
-	viper.AddConfigPath("../")
+func InitConfig(confPath string) {
+	if confPath != "" {
+		log.Infow("load config", "path", confPath)
+
+		confName := strings.Split(filepath.Base(confPath), ".")
+
+		viper.SetConfigName(confName[0])
+		viper.SetConfigType("yaml")
+		viper.AddConfigPath(filepath.Dir(confPath))
+	} else {
+		viper.SetConfigName("config")
+		viper.SetConfigType("yaml")
+		viper.AddConfigPath("./conf")
+		viper.AddConfigPath("../conf")
+		viper.AddConfigPath("./")
+		viper.AddConfigPath("../")
+	}
+
 	err := viper.ReadInConfig()
 	if err != nil {
 		log.Errorf("ReadInConfig fail: %+v", err)
