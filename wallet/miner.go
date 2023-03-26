@@ -818,7 +818,7 @@ var actorConfirmChangeWorker = &cli.Command{
 		msgCid, err := send(nk, &types.Message{
 			From:   from,
 			To:     maddr,
-			Method: builtin.MethodsMiner.ConfirmUpdateWorkerKey,
+			Method: builtin.MethodsMiner.ConfirmChangeWorkerAddress,
 			Value:  big.Zero(),
 		})
 		if err != nil {

@@ -2391,7 +2391,7 @@ var msigConfirmChangeWorkerProposeCmd = &cli.Command{
 
 		msiger := NewMsiger()
 
-		proto, err := msiger.MsigPropose(multisigAddr, minerAddr, big.Zero(), sender, uint64(builtin.MethodsMiner.ConfirmUpdateWorkerKey), nil)
+		proto, err := msiger.MsigPropose(multisigAddr, minerAddr, big.Zero(), sender, uint64(builtin.MethodsMiner.ConfirmChangeWorkerAddress), nil)
 		if err != nil {
 			return xerrors.Errorf("proposing message: %w", err)
 		}
@@ -2483,7 +2483,7 @@ var msigConfirmChangeWorkerApproveCmd = &cli.Command{
 
 		msiger := NewMsiger()
 
-		proto, err := msiger.MsigApproveTxnHash(multisigAddr, txid, proposer, minerAddr, big.Zero(), sender, uint64(builtin.MethodsMiner.ConfirmUpdateWorkerKey), nil)
+		proto, err := msiger.MsigApproveTxnHash(multisigAddr, txid, proposer, minerAddr, big.Zero(), sender, uint64(builtin.MethodsMiner.ConfirmChangeWorkerAddress), nil)
 		if err != nil {
 			return xerrors.Errorf("approving message: %w", err)
 		}
