@@ -1,18 +1,21 @@
 module github.com/llifezou/fil-wallet
 
-go 1.18
+go 1.19
 
 require github.com/ipfs/go-log/v2 v2.5.1
 
-replace github.com/filecoin-project/filecoin-ffi => ./extern/filecoin-ffi
+replace (
+	github.com/filecoin-project/filecoin-ffi => ./extern/filecoin-ffi
+	github.com/zondax/hid v0.9.0 => /Users/zouwenbin/zou/work/hid
+)
 
 require github.com/urfave/cli/v2 v2.16.3
 
 require github.com/fatih/color v1.13.0
 
 require (
-	github.com/filecoin-project/go-state-types v0.10.0
-	github.com/filecoin-project/lotus v1.20.0
+	github.com/filecoin-project/go-state-types v0.11.1
+	github.com/filecoin-project/lotus v1.22.1
 	github.com/llifezou/hdwallet v0.0.2
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2
 )
@@ -207,14 +210,14 @@ require (
 	go.uber.org/fx v1.15.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
-	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90 // indirect
+	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/exp v0.0.0-20220916125017-b168a2c6b86b // indirect
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/net v0.0.0-20220920183852-bf014ff85ad5 // indirect
+	golang.org/x/net v0.1.0 // indirect
 	golang.org/x/sync v0.0.0-20220907140024-f12130a52804 // indirect
-	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/sys v0.1.0 // indirect
+	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/tools v0.1.12 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

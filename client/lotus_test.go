@@ -41,6 +41,14 @@ func TestLotusStateLookupID(t *testing.T) {
 
 	t.Log(actorID)
 }
+func TestLookupRobustAddress(t *testing.T) {
+	actorID, err := LookupRobustAddress("https://api.node.glif.io/rpc/v0", "", "f02098315")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(actorID)
+}
 
 func TestLotusStateGetActor(t *testing.T) {
 	code, head, nonce, balance, err := LotusStateGetActor("https://26PBnIho1PmwtTUzXfN3pMwS2eK:d3788bb657259d62d1e6ea6acb319073@filecoin.infura.io", "", "f2nlvxccdlhydntnt5zchm6uhhpe6og6oy5dsloii")
@@ -97,7 +105,7 @@ func TestLotusStateMinerAvailableBalance(t *testing.T) {
 }
 
 func TestLotusStateAccountKey(t *testing.T) {
-	r, err := LotusStateAccountKey("https://26PBnIho1PmwtTUzXfN3pMwS2eK:d3788bb657259d62d1e6ea6acb319073@filecoin.infura.io", "", "f01890230")
+	r, err := LotusStateAccountKey("https://26PBnIho1PmwtTUzXfN3pMwS2eK:d3788bb657259d62d1e6ea6acb319073@filecoin.infura.io", "", "f02098315")
 	if err != nil {
 		t.Fatal(err)
 	}

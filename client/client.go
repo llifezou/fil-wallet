@@ -25,6 +25,7 @@ const (
 	GasEstimateMessageGas      Method = "Filecoin.GasEstimateMessageGas"
 	MpoolGetNonce              Method = "Filecoin.MpoolGetNonce"
 	StateLookupID              Method = "Filecoin.StateLookupID"
+	StateLookupRobustAddress   Method = "Filecoin.StateLookupRobustAddress"
 	StateGetActor              Method = "Filecoin.StateGetActor"
 	StateMinerInfo             Method = "Filecoin.StateMinerInfo"
 	StateWaitMsgLimited        Method = "Filecoin.StateWaitMsgLimited"
