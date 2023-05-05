@@ -150,6 +150,33 @@ func LotusStateLookupID(rpcAddr, token string, addr string) (string, error) {
 	return "", xerrors.New("result is empty")
 }
 
+func LookupRobustAddress(rpcAddr, token string, addr string) (string, error) {
+	var params []interface{}
+	params = append(params, addr)
+	params = append(params, types.EmptyTSK)
+
+	result, err := NewClient(rpcAddr, token, StateLookupRobustAddress, params).Call()
+	if err != nil {
+		return "", err
+	}
+
+	r := Response{}
+	err = json.Unmarshal(result, &r)
+	if err != nil {
+		return "", err
+	}
+	if r.Error != nil {
+		return "", xerrors.Errorf("error: %s", r.Error.(map[string]interface{})["message"])
+	}
+
+	if r.Result != nil {
+		actorID := r.Result.(string)
+		return actorID, nil
+	}
+
+	return "", xerrors.New("result is empty")
+}
+
 func LotusStateGetActor(rpcAddr, token string, addr string) (string, string, float64, string, error) {
 	var params []interface{}
 	params = append(params, addr)
