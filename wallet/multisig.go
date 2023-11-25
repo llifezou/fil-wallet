@@ -19,7 +19,7 @@ import (
 	"github.com/filecoin-project/lotus/chain/actors/adt"
 	bt2 "github.com/filecoin-project/lotus/chain/actors/builtin"
 	"github.com/filecoin-project/lotus/chain/actors/builtin/multisig"
-	"github.com/filecoin-project/lotus/chain/consensus/filcns"
+	"github.com/filecoin-project/lotus/chain/consensus"
 	"github.com/filecoin-project/lotus/chain/types"
 	init2 "github.com/filecoin-project/specs-actors/v2/actors/builtin/init"
 	msig2 "github.com/filecoin-project/specs-actors/v2/actors/builtin/multisig"
@@ -383,7 +383,7 @@ var msigInspectCmd = &cli.Command{
 					}
 				} else {
 					// todo 反解params
-					method := filcns.NewActorRegistry().Methods[targAct.Code][tx.Method] // TODO: use remote map
+					method := consensus.NewActorRegistry().Methods[targAct.Code][tx.Method] // TODO: use remote map
 
 					if decParams && tx.Method != 0 {
 						ptyp := reflect.New(method.Params.Elem()).Interface().(cbg.CBORUnmarshaler)
